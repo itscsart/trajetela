@@ -8,13 +8,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-
       includeAssets: [
         'favicon.ico',
         'icons/icon-192.png',
         'icons/icon-512.png',
+        'icons/maskable-icon-512.png',
       ],
-
       manifest: {
         name: 'TrajetEla',
         short_name: 'TrajetEla',
@@ -25,7 +24,6 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: '/',
         scope: '/',
-
         icons: [
           {
             src: '/icons/icon-192.png',
@@ -38,23 +36,20 @@ export default defineConfig({
             type: 'image/png',
           },
           {
-            src: '/icons/icon-512.png',
+            src: '/icons/maskable-icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable',
+            purpose: 'maskable',
           },
         ],
       },
-
       workbox: {
+        // Faz cache dos assets do build para funcionar offline.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
-
-        // Permite cache de imagens maiores
-        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
       },
-
       devOptions: {
+        // Permite testar o PWA em desenvolvimento (npm run dev).
         enabled: true,
       },
     }),
