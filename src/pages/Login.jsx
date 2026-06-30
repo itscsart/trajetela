@@ -7,6 +7,31 @@ export default function Login() {
   const navigate = useNavigate()
   const [showPass, setShowPass] = useState(false)
   const [remember, setRemember] = useState(false)
+  const [emailOuTelefone, setEmailOuTelefone] = useState('')
+  const [senha, setSenha] = useState('')
+  const [erro, setErro] = useState('')
+
+  const entrar = () => {
+    setErro('')
+    let usuario = null
+    try {
+      usuario = JSON.parse(localStorage.getItem('trajetela_usuario') || 'null')
+    } catch {
+      usuario = null
+    }
+
+    if (
+      usuario &&
+      usuario.emailOuTelefone === emailOuTelefone.trim() &&
+      usuario.senha === senha
+    ) {
+      const atualizado = { ...usuario, logado: true }
+      localStorage.setItem('trajetela_usuario', JSON.stringify(atualizado))
+      navigate('/home')
+    } else {
+      setErro('E-mail, telefone ou senha incorretos.')
+    }
+  }
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[430px] bg-[#ECE6FA] px-7 pb-10">
@@ -36,12 +61,22 @@ export default function Login() {
       <div className="mt-9 space-y-3">
         <input
           type="text"
+          value={emailOuTelefone}
+          onChange={(e) => {
+            setEmailOuTelefone(e.target.value)
+            setErro('')
+          }}
           placeholder="E-mail ou telefone"
           className="w-full rounded-xl border border-[#291662]/20 bg-white px-4 py-3.5 text-[15px] text-[#291662] outline-none focus:border-[#8F55E9]"
         />
         <div className="flex items-center rounded-xl border border-[#291662]/20 bg-white px-4">
           <input
             type={showPass ? 'text' : 'password'}
+            value={senha}
+            onChange={(e) => {
+              setSenha(e.target.value)
+              setErro('')
+            }}
             placeholder="Senha"
             className="w-full bg-transparent py-3.5 text-[15px] text-[#291662] outline-none"
           />
@@ -65,8 +100,10 @@ export default function Login() {
         Esqueceu a senha ?
       </button>
 
+      {erro && <p className="mt-4 text-center text-[14px] font-medium text-[#D6479B]">{erro}</p>}
+
       <button
-        onClick={() => navigate('/home')}
+        onClick={entrar}
         className="mx-auto mt-7 block w-full max-w-[230px] rounded-full border-2 border-[#8F55E9] bg-white py-3.5 text-[15px] font-bold text-[#291662] transition-colors active:bg-[#8F55E9]/10"
       >
         Continuar

@@ -50,11 +50,21 @@ export default function Perfil() {
     setAberto(qual)
   }
 
+  const sair = () => {
+    try {
+      const u = JSON.parse(localStorage.getItem('trajetela_usuario') || 'null')
+      if (u) localStorage.setItem('trajetela_usuario', JSON.stringify({ ...u, logado: false }))
+    } catch {
+      /* ignora */
+    }
+    navigate('/login')
+  }
+
   const links = [
     { label: 'Área de interesse', action: () => navigate('/area-interesse') },
     { label: 'Informações pessoais', action: () => navigate('/informacoes-pessoais') },
     { label: 'Ajuda', action: () => navigate('/ajuda') },
-    { label: 'Sair', action: () => navigate('/login') },
+    { label: 'Sair', action: sair },
   ]
 
   return (

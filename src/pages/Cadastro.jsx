@@ -7,6 +7,34 @@ export default function Cadastro() {
   const navigate = useNavigate()
   const [showPass, setShowPass] = useState(false)
   const [remember, setRemember] = useState(false)
+  const [emailOuTelefone, setEmailOuTelefone] = useState('')
+  const [senha, setSenha] = useState('')
+  const [erro, setErro] = useState('')
+
+  const cadastrar = () => {
+    const valor = emailOuTelefone.trim()
+    if (!valor) {
+      setErro('Informe seu e-mail ou telefone.')
+      return
+    }
+    if (!senha) {
+      setErro('Informe uma senha.')
+      return
+    }
+    if (senha.length < 4) {
+      setErro('A senha deve ter ao menos 4 caracteres.')
+      return
+    }
+
+    const usuario = {
+      nome: 'Daniele Dourado',
+      emailOuTelefone: valor,
+      senha,
+      logado: true,
+    }
+    localStorage.setItem('trajetela_usuario', JSON.stringify(usuario))
+    navigate('/home')
+  }
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[430px] bg-[#ECE6FA] px-7 pb-10">
@@ -33,6 +61,11 @@ export default function Cadastro() {
           <label className="mb-1.5 block text-[13px] font-medium text-[#291662]">E-mail ou telefone</label>
           <input
             type="text"
+            value={emailOuTelefone}
+            onChange={(e) => {
+              setEmailOuTelefone(e.target.value)
+              setErro('')
+            }}
             className="w-full rounded-xl border border-[#291662]/20 bg-white px-4 py-3.5 text-[15px] text-[#291662] outline-none focus:border-[#8F55E9]"
           />
         </div>
@@ -41,6 +74,11 @@ export default function Cadastro() {
           <div className="flex items-center rounded-xl border border-[#291662]/20 bg-white px-4">
             <input
               type={showPass ? 'text' : 'password'}
+              value={senha}
+              onChange={(e) => {
+                setSenha(e.target.value)
+                setErro('')
+              }}
               className="w-full bg-transparent py-3.5 text-[15px] text-[#291662] outline-none"
             />
             <button onClick={() => setShowPass((v) => !v)} className="text-[14px] font-medium text-[#291662]">
@@ -66,8 +104,10 @@ export default function Cadastro() {
         <span className="font-bold">Política de Cookies</span> do TrajetEla.
       </p>
 
+      {erro && <p className="mt-4 text-center text-[14px] font-medium text-[#D6479B]">{erro}</p>}
+
       <button
-        onClick={() => navigate('/home')}
+        onClick={cadastrar}
         className="mx-auto mt-7 block w-full max-w-[230px] rounded-full border-2 border-[#291662] bg-white py-3.5 text-[15px] font-bold text-[#291662] active:bg-[#8F55E9]/10"
       >
         Continuar
