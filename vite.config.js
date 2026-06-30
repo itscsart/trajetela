@@ -2,18 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+
       includeAssets: [
         'favicon.ico',
         'icons/icon-192.png',
         'icons/icon-512.png',
         'icons/maskable-icon-512.png',
       ],
+
       manifest: {
         name: 'TrajetEla',
         short_name: 'TrajetEla',
@@ -24,6 +25,7 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: '/',
         scope: '/',
+
         icons: [
           {
             src: '/icons/icon-192.png',
@@ -43,13 +45,14 @@ export default defineConfig({
           },
         ],
       },
+
       workbox: {
-        // Faz cache dos assets do build para funcionar offline.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
+        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
       },
+
       devOptions: {
-        // Permite testar o PWA em desenvolvimento (npm run dev).
         enabled: true,
       },
     }),
