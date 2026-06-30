@@ -5,6 +5,7 @@ import HeaderBack from '../components/HeaderBack'
 import Modal from '../components/Modal'
 import avatar from '../assets/perfil.png'
 import { StarIcon, BriefcaseIcon, ChevronRight } from '../components/Icons'
+import { getUsuario, setLogado } from '../utils/auth'
 
 function lerConquistas() {
   try {
@@ -33,6 +34,9 @@ const matchesIniciais = [
 
 export default function Perfil() {
   const navigate = useNavigate()
+  const usuario = getUsuario()
+  const nome = usuario && usuario.nome ? usuario.nome : 'Usuária'
+  const contato = usuario && usuario.emailOuTelefone ? usuario.emailOuTelefone : ''
   const [aberto, setAberto] = useState(null) // 'avaliacao' | 'trabalhos' | 'conquistas' | 'match'
   const [conquistas] = useState(lerConquistas)
   const [matches, setMatches] = useState(matchesIniciais)
@@ -51,12 +55,7 @@ export default function Perfil() {
   }
 
   const sair = () => {
-    try {
-      const u = JSON.parse(localStorage.getItem('trajetela_usuario') || 'null')
-      if (u) localStorage.setItem('trajetela_usuario', JSON.stringify({ ...u, logado: false }))
-    } catch {
-      /* ignora */
-    }
+    setLogado(false)
     navigate('/login')
   }
 
@@ -75,8 +74,9 @@ export default function Perfil() {
         <div className="h-36 w-36 overflow-hidden rounded-full border-4 border-[#8F55E9]/40 shadow-md">
           <img src={avatar} alt="Daniele Dourado" className="h-full w-full object-cover" />
         </div>
-        <h1 className="mt-4 text-2xl font-extrabold text-[#291662]">Daniele Dourado</h1>
+        <h1 className="mt-4 text-2xl font-extrabold text-[#291662]">{nome}</h1>
         <p className="text-[14px] font-bold text-[#291662]">Aprendiz</p>
+        {contato && <p className="mt-1 text-[13px] text-[#291662]/70">{contato}</p>}
 
         {/* Stats em grid 2x2 */}
         <div className="mt-7 grid w-full grid-cols-2 gap-3">

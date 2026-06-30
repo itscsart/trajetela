@@ -20,17 +20,22 @@ export default function Login() {
       usuario = null
     }
 
-    if (
+    const credenciaisOk =
       usuario &&
       usuario.emailOuTelefone === emailOuTelefone.trim() &&
       usuario.senha === senha
-    ) {
-      const atualizado = { ...usuario, logado: true }
-      localStorage.setItem('trajetela_usuario', JSON.stringify(atualizado))
-      navigate('/home')
-    } else {
+
+    if (!credenciaisOk) {
       setErro('E-mail, telefone ou senha incorretos.')
+      return
     }
+    if (usuario.verificado !== true) {
+      setErro('Você precisa confirmar seu cadastro antes de entrar.')
+      return
+    }
+
+    localStorage.setItem('trajetela_usuario', JSON.stringify({ ...usuario, logado: true }))
+    navigate('/home')
   }
 
   return (

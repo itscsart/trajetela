@@ -5,6 +5,7 @@ import UserHeader from '../components/UserHeader'
 import Modal from '../components/Modal'
 import VagaModal from '../components/VagaModal'
 import { HeartIcon } from '../components/Icons'
+import { saudacao } from '../utils/auth'
 
 const vagas = [
   { id: 'cozinha', titulo: 'Auxiliar de cozinha', compat: 92, bg: 'bg-[#FBE3C9]', emoji: '🍳', empresa: 'Restaurante Sabor & Cia', local: 'São Paulo - SP', modalidade: 'Presencial', horario: '08:00 às 16:00', salario: 'R$1.600', descricao: 'Apoio no preparo de alimentos, organização da cozinha e higienização de utensílios.' },
@@ -29,7 +30,7 @@ export default function Home() {
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
-      <UserHeader title="Olá, Daniele !" subtitle="O que você quer conquistar hoje?" />
+      <UserHeader title={saudacao()} subtitle="O que você quer conquistar hoje?" />
 
       <div className="-mt-5 mb-6 min-h-[60vh] rounded-t-[28px] rounded-b-[32px] border-t border-[#8F55E9]/30 bg-white px-5 pb-8 pt-6">
         {/* Sua Jornada (card inteiro clicável → Cursos) */}

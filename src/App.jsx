@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 import Splash from './pages/Splash'
 import Login from './pages/Login'
@@ -20,35 +20,41 @@ import Ajuda from './pages/Ajuda'
 import AreaInteresse from './pages/AreaInteresse'
 import InformacoesPessoais from './pages/InformacoesPessoais'
 import ExcluirConta from './pages/ExcluirConta'
-import Placeholder from './pages/Placeholder'
+import { isAutenticada } from './utils/auth'
+
+// Protege páginas internas: exige usuária logada e verificada.
+function Protegida({ children }) {
+  return isAutenticada() ? children : <Navigate to="/login" replace />
+}
 
 export default function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[#ECE6FA]">
         <Routes>
+          {/* Rotas livres */}
           <Route path="/" element={<Splash />} />
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/cursos" element={<Cursos />} />
-          <Route path="/vagas" element={<Vagas />} />
-          <Route path="/renda-rapida" element={<RendaRapida />} />
-          <Route path="/freelas" element={<Freelas />} />
-          <Route path="/ebook" element={<Ebook />} />
-          <Route path="/mais" element={<Mais />} />
-          <Route path="/salvos" element={<Salvos />} />
-          <Route path="/perfil" element={<Perfil />} />
-          <Route path="/ajuda" element={<Ajuda />} />
-          <Route path="/area-interesse" element={<AreaInteresse />} />
-          <Route path="/informacoes-pessoais" element={<InformacoesPessoais />} />
-          <Route path="/excluir-conta" element={<ExcluirConta />} />
 
-          {/* Placeholders */}
-          <Route path="/match" element={<Match />} />
-          <Route path="/potencia" element={<Potencia />} />
-          <Route path="/autoridade-40-minutos" element={<Autoridade40 />} />
-          <Route path="/portas-abertas" element={<PortasAbertas />} />
+          {/* Rotas protegidas */}
+          <Route path="/home" element={<Protegida><Home /></Protegida>} />
+          <Route path="/cursos" element={<Protegida><Cursos /></Protegida>} />
+          <Route path="/vagas" element={<Protegida><Vagas /></Protegida>} />
+          <Route path="/renda-rapida" element={<Protegida><RendaRapida /></Protegida>} />
+          <Route path="/freelas" element={<Protegida><Freelas /></Protegida>} />
+          <Route path="/ebook" element={<Protegida><Ebook /></Protegida>} />
+          <Route path="/mais" element={<Protegida><Mais /></Protegida>} />
+          <Route path="/salvos" element={<Protegida><Salvos /></Protegida>} />
+          <Route path="/perfil" element={<Protegida><Perfil /></Protegida>} />
+          <Route path="/ajuda" element={<Protegida><Ajuda /></Protegida>} />
+          <Route path="/area-interesse" element={<Protegida><AreaInteresse /></Protegida>} />
+          <Route path="/informacoes-pessoais" element={<Protegida><InformacoesPessoais /></Protegida>} />
+          <Route path="/excluir-conta" element={<Protegida><ExcluirConta /></Protegida>} />
+          <Route path="/match" element={<Protegida><Match /></Protegida>} />
+          <Route path="/potencia" element={<Protegida><Potencia /></Protegida>} />
+          <Route path="/autoridade-40-minutos" element={<Protegida><Autoridade40 /></Protegida>} />
+          <Route path="/portas-abertas" element={<Protegida><PortasAbertas /></Protegida>} />
 
           {/* Fallback */}
           <Route path="*" element={<Login />} />

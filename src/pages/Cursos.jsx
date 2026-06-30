@@ -4,6 +4,7 @@ import UserHeader from '../components/UserHeader'
 import Modal from '../components/Modal'
 import { PlayIcon, HeartIcon } from '../components/Icons'
 import { addSalvo } from '../utils/salvos'
+import { saudacao } from '../utils/auth'
 
 import cursoBeleza from '../assets/curso-beleza.png'
 import cursoNegocios from '../assets/curso-negocios.png'
@@ -112,7 +113,7 @@ export default function Cursos() {
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
-      <UserHeader title="Olá, Daniele !" subtitle="O que você quer conquistar hoje?" />
+      <UserHeader title={saudacao()} subtitle="O que você quer conquistar hoje?" />
 
       <div className="-mt-5 mb-6 rounded-t-[28px] rounded-b-[32px] border-t border-[#8F55E9]/30 bg-white px-5 pb-8 pt-6">
         {/* Cursos Livres */}

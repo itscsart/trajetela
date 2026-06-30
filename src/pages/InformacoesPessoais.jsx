@@ -3,13 +3,18 @@ import PageContainer from '../components/PageContainer'
 import HeaderBack from '../components/HeaderBack'
 import { ShieldIcon } from '../components/Icons'
 import infoImg from '../assets/informacoes-pessoais.png'
+import { getUsuario, atualizarUsuario } from '../utils/auth'
 
 const STORAGE_KEY = 'trajetela_info_pessoais'
 
 export default function InformacoesPessoais() {
-  const [cpf, setCpf] = useState('123.456.789.10')
-  const [email, setEmail] = useState('daniele.dourado@gmail.com')
-  const [telefone, setTelefone] = useState('(11) 96084-5689')
+  const usuario = getUsuario()
+  const contato = usuario && usuario.emailOuTelefone ? usuario.emailOuTelefone : ''
+  const ehEmail = contato.includes('@')
+
+  const [cpf, setCpf] = useState('')
+  const [email, setEmail] = useState(usuario && usuario.email ? usuario.email : ehEmail ? contato : '')
+  const [telefone, setTelefone] = useState(usuario && usuario.telefone ? usuario.telefone : ehEmail ? '' : contato)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
@@ -28,6 +33,7 @@ export default function InformacoesPessoais() {
 
   const salvar = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ cpf, email, telefone }))
+    atualizarUsuario({ email, telefone }) // reflete os dados no usuário logado
     setSaved(true)
   }
 
