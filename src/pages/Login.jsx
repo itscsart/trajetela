@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logoOficial from '../assets/logo-oficial.svg'
 import { GoogleIcon, MicrosoftIcon } from '../components/Icons'
+import { supabase } from '../lib/supabase'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -11,30 +12,29 @@ export default function Login() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
 
-  const entrar = () => {
+  const entrar = async () => {
     setErro('')
-    let usuario = null
-    try {
-      usuario = JSON.parse(localStorage.getItem('trajetela_usuario') || 'null')
-    } catch {
-      usuario = null
-    }
 
-    const credenciaisOk =
-      usuario &&
-      usuario.emailOuTelefone === emailOuTelefone.trim() &&
-      usuario.senha === senha
-
-    if (!credenciaisOk) {
-      setErro('E-mail, telefone ou senha incorretos.')
-      return
-    }
-    if (usuario.verificado !== true) {
-      setErro('Você precisa confirmar seu cadastro antes de entrar.')
+    if (!emailOuTelefone.trim() || !senha.trim()) {
+      setErro('Preencha seu e-mail e senha.')
       return
     }
 
-    localStorage.setItem('trajetela_usuario', JSON.stringify({ ...usuario, logado: true }))
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: emailOuTelefone.trim(),
+      password: senha
+    })
+
+    if (error) {
+      setErro('E-mail ou senha inválidos.')
+      return
+    }
+
+    if (!data.user) {
+      setErro('Usuário não encontrado.')
+      return
+    }
+
     navigate('/home')
   }
 
@@ -74,6 +74,7 @@ export default function Login() {
           placeholder="E-mail ou telefone"
           className="w-full rounded-xl border border-[#291662]/20 bg-white px-4 py-3.5 text-[15px] text-[#291662] outline-none focus:border-[#8F55E9]"
         />
+
         <div className="flex items-center rounded-xl border border-[#291662]/20 bg-white px-4">
           <input
             type={showPass ? 'text' : 'password'}
@@ -85,7 +86,11 @@ export default function Login() {
             placeholder="Senha"
             className="w-full bg-transparent py-3.5 text-[15px] text-[#291662] outline-none"
           />
-          <button onClick={() => setShowPass((v) => !v)} className="text-[14px] font-medium text-[#291662]">
+
+          <button
+            onClick={() => setShowPass((v) => !v)}
+            className="text-[14px] font-medium text-[#291662]"
+          >
             {showPass ? 'Ocultar' : 'Exibir'}
           </button>
         </div>
@@ -105,7 +110,11 @@ export default function Login() {
         Esqueceu a senha ?
       </button>
 
-      {erro && <p className="mt-4 text-center text-[14px] font-medium text-[#D6479B]">{erro}</p>}
+      {erro && (
+        <p className="mt-4 text-center text-[14px] font-medium text-[#D6479B]">
+          {erro}
+        </p>
+      )}
 
       <button
         onClick={entrar}
@@ -116,7 +125,10 @@ export default function Login() {
 
       <p className="mt-7 text-center text-[14px] text-[#291662]">
         Ainda não faz parte do TrajetEla?{' '}
-        <button onClick={() => navigate('/cadastro')} className="font-bold text-[#291662] underline">
+        <button
+          onClick={() => navigate('/cadastro')}
+          className="font-bold text-[#291662] underline"
+        >
           Cadastre-se agora
         </button>
       </p>
