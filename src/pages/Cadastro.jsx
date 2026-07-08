@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logoOficial from '../assets/logo-oficial.svg'
-import Modal from '../components/Modal'
 import { ArrowLeftIcon, GoogleIcon } from '../components/Icons'
+import { supabase } from '../lib/supabase'
 
 export default function Cadastro() {
   const navigate = useNavigate()
@@ -12,13 +12,9 @@ export default function Cadastro() {
   const [emailOuTelefone, setEmailOuTelefone] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
-
   const [modalAberto, setModalAberto] = useState(false)
-  const [codigoGerado, setCodigoGerado] = useState('')
-  const [codigoDigitado, setCodigoDigitado] = useState('')
-  const [erroCodigo, setErroCodigo] = useState('')
 
-  const cadastrar = () => {
+  const cadastrar = async () => {
     const nomeLimpo = nome.trim()
     const valor = emailOuTelefone.trim()
     if (!nomeLimpo) {
@@ -39,49 +35,24 @@ export default function Cadastro() {
     }
     setErro('')
 
-    const codigo = String(Math.floor(100000 + Math.random() * 900000))
-    setCodigoGerado(codigo)
-    localStorage.setItem(
-      'trajetela_usuario_pendente',
-      JSON.stringify({
-        nome: nomeLimpo,
-        emailOuTelefone: valor,
-        senha,
-        codigoVerificacao: codigo,
-        verificado: false,
-      }),
-    )
-    setCodigoDigitado('')
-    setErroCodigo('')
-    setModalAberto(true)
-  }
+    const { error } = await supabase.auth.signUp({
+      email: valor,
+      password: senha,
+      options: {
+        data: {
+          nome: nomeLimpo,
+        },
+      },
+    })
 
-  const confirmarCodigo = () => {
-    let pendente = null
-    try {
-      pendente = JSON.parse(localStorage.getItem('trajetela_usuario_pendente') || 'null')
-    } catch {
-      pendente = null
-    }
-    if (!pendente || codigoDigitado.trim() !== pendente.codigoVerificacao) {
-      setErroCodigo('Código incorreto. Verifique e tente novamente.')
+    if (error) {
+      setErro(error.message)
       return
     }
 
-    localStorage.setItem(
-      'trajetela_usuario',
-      JSON.stringify({
-        nome: pendente.nome,
-        emailOuTelefone: pendente.emailOuTelefone,
-        senha: pendente.senha,
-        verificado: true,
-        logado: true,
-        criadoEm: new Date().toISOString(),
-      }),
-    )
-    localStorage.removeItem('trajetela_usuario_pendente')
     setModalAberto(false)
-    navigate('/home')
+    alert('Cadastro realizado com sucesso. Verifique seu e-mail para confirmar sua conta.')
+    navigate('/login')
   }
 
   return (
@@ -189,36 +160,6 @@ export default function Cadastro() {
         <br />
         para uma empresa? <span className="font-bold">Receber ajuda</span>
       </p>
-
-      {/* Modal de verificação simulada */}
-      <Modal open={modalAberto} onClose={() => setModalAberto(false)} title="Confirme seu cadastro">
-        <p className="text-[14px] leading-relaxed text-[#291662]/80">
-          Enviamos um código de verificação para seu e-mail ou telefone.
-        </p>
-        <div className="mt-3 rounded-2xl bg-[#F6F1FE] px-4 py-3 text-center text-[14px] font-bold text-[#291662]">
-          Código de teste: {codigoGerado}
-        </div>
-
-        <label className="mb-1.5 mt-5 block text-[13px] font-medium text-[#291662]">Digite o código</label>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={codigoDigitado}
-          onChange={(e) => {
-            setCodigoDigitado(e.target.value)
-            setErroCodigo('')
-          }}
-          className="w-full rounded-xl border border-[#291662]/20 bg-white px-4 py-3.5 text-center text-[18px] font-bold tracking-[0.3em] text-[#291662] outline-none focus:border-[#8F55E9]"
-        />
-        {erroCodigo && <p className="mt-3 text-center text-[14px] font-medium text-[#D6479B]">{erroCodigo}</p>}
-
-        <button
-          onClick={confirmarCodigo}
-          className="mt-6 w-full rounded-full bg-[#8F55E9] py-3.5 text-[15px] font-semibold text-white"
-        >
-          Confirmar código
-        </button>
-      </Modal>
     </div>
   )
 }
