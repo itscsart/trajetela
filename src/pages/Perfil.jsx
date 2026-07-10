@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import HeaderBack from '../components/HeaderBack'
@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import avatar from '../assets/perfil.png'
 import { StarIcon, BriefcaseIcon, ChevronRight } from '../components/Icons'
 import { getUsuario, setLogado } from '../utils/auth'
+import { getPerfil } from '../utils/profileService'
 
 function lerConquistas() {
   try {
@@ -35,12 +36,26 @@ const matchesIniciais = [
 export default function Perfil() {
   const navigate = useNavigate()
   const usuario = getUsuario()
-  const nome = usuario && usuario.nome ? usuario.nome : 'Usuária'
-  const contato = usuario && usuario.emailOuTelefone ? usuario.emailOuTelefone : ''
+  const [perfil, setPerfil] = useState(null)
   const [aberto, setAberto] = useState(null) // 'avaliacao' | 'trabalhos' | 'conquistas' | 'match'
   const [conquistas] = useState(lerConquistas)
   const [matches, setMatches] = useState(matchesIniciais)
   const [feedback, setFeedback] = useState('')
+
+  useEffect(() => {
+    async function carregarPerfil() {
+      const dados = await getPerfil()
+
+      if (dados) {
+        setPerfil(dados)
+      }
+    }
+
+    carregarPerfil()
+  }, [])
+
+  const nome = perfil?.nome || usuario?.nome || 'Usuária'
+  const contato = perfil?.email || usuario?.emailOuTelefone || ''
 
   const totalConquistas = 2 + conquistas.length
 
