@@ -1,61 +1,102 @@
 import { supabase } from '../lib/supabase'
 
+function obterNomeDoUsuario(user) {
+  return (
+    user?.user_metadata?.nome ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split('@')[0] ||
+    ''
+  )
+}
+
 export async function getPerfil() {
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser()
 
-  if (!user) return null
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  if (error) {
-    console.error(error)
+  if (userError) {
+    console.error('Erro ao buscar usuária autenticada:', userError)
     return null
   }
 
-  return data
-}
-
-export async function criarPerfilSeNaoExistir() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   if (!user) return null
 
-  const { data: perfil } = await supabase
+  const { data: perfil, error: perfilError } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (perfil) return perfil
+  if (perfilError) {
+    console.error('Erro ao buscar perfil:', perfilError)
+    return null
+  }
+
+  if (perfil) {
+    if (!perfil.nome) {
+      const nome = obterNomeDoUsuario(user)
+
+      if (nome) {
+        const { data: atualizado, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            nome,
+            email: perfil.email || user.email || '',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id)
+          .select()
+          .single()
+
+        if (updateError) {
+          console.error('Erro ao atualizar nome do perfil:', updateError)
+          return { ...perfil, nome }
+        }
+
+        return atualizado
+      }
+    }
+
+    return perfil
+  }
 
   const novoPerfil = {
     id: user.id,
-    nome:
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
-      '',
+    nome: obterNomeDoUsuario(user),
     email: user.email || '',
+    updated_at: new Date().toISOString(),
   }
 
-  await supabase
+  const { data: criado, error: insertError } = await supabase
     .from('profiles')
     .insert(novoPerfil)
+    .select()
+    .single()
 
-  return novoPerfil
+  if (insertError) {
+    console.error('Erro ao criar perfil:', insertError)
+    return novoPerfil
+  }
+
+  return criado
+}
+
+export async function criarPerfilSeNaoExistir() {
+  return getPerfil()
 }
 
 export async function salvarPerfil(dados) {
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser()
+
+  if (userError) {
+    console.error('Erro ao buscar usuária autenticada:', userError)
+    return false
+  }
 
   if (!user) return false
 
@@ -68,7 +109,7 @@ export async function salvarPerfil(dados) {
     })
 
   if (error) {
-    console.error(error)
+    console.error('Erro ao salvar perfil:', error)
     return false
   }
 
