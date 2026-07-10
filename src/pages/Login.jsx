@@ -35,6 +35,19 @@ export default function Login() {
       return
     }
 
+    const usuarioReal = {
+      id: data.user.id,
+      nome: data.user.user_metadata?.nome || '',
+      emailOuTelefone: data.user.email || '',
+      verificado: Boolean(data.user.email_confirmed_at),
+      logado: true,
+    }
+
+    localStorage.setItem(
+      'trajetela_usuario',
+      JSON.stringify(usuarioReal)
+    )
+
     navigate('/home')
   }
 
