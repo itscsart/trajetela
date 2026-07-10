@@ -12,6 +12,21 @@ export default function Login() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
 
+  const entrarComGoogle = async () => {
+    setErro('')
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/home`,
+      },
+    })
+
+    if (error) {
+      setErro('Não foi possível entrar com o Google.')
+    }
+  }
+
   const entrar = async () => {
     setErro('')
 
@@ -62,8 +77,12 @@ export default function Login() {
       </h1>
 
       <div className="mt-9 space-y-3">
-        <button className="flex w-full items-center justify-center gap-3 rounded-full border border-[#291662]/25 bg-white py-3.5 text-[15px] font-medium text-[#291662]">
-          <GoogleIcon className="h-5 w-5" /> Continuar com google
+        <button
+          type="button"
+          onClick={entrarComGoogle}
+          className="flex w-full items-center justify-center gap-3 rounded-full border border-[#291662]/25 bg-white py-3.5 text-[15px] font-medium text-[#291662]"
+        >
+          <GoogleIcon className="h-5 w-5" /> Continuar com Google
         </button>
         <button className="flex w-full items-center justify-center gap-3 rounded-full border border-[#291662]/25 bg-white py-3.5 text-[15px] font-medium text-[#291662]">
           <MicrosoftIcon className="h-4 w-4" /> Entrar com a Microsoft
