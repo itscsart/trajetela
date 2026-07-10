@@ -23,6 +23,7 @@ import Ajuda from './pages/Ajuda'
 import AreaInteresse from './pages/AreaInteresse'
 import InformacoesPessoais from './pages/InformacoesPessoais'
 import ExcluirConta from './pages/ExcluirConta'
+import RedefinirSenha from './pages/RedefinirSenha'
 
 function Protegida({ children, session, carregando }) {
   if (carregando) {
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/" element={<Splash />} />
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
           {/* Rotas protegidas */}
           <Route

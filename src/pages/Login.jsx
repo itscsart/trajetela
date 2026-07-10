@@ -11,6 +11,8 @@ export default function Login() {
   const [emailOuTelefone, setEmailOuTelefone] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
+  const [mensagem, setMensagem] = useState('')
+  const [enviandoRecuperacao, setEnviandoRecuperacao] = useState(false)
 
   const entrarComGoogle = async () => {
     setErro('')
@@ -25,6 +27,33 @@ export default function Login() {
     if (error) {
       setErro('Não foi possível entrar com o Google.')
     }
+  }
+
+  const recuperarSenha = async () => {
+    setErro('')
+    setMensagem('')
+
+    const email = emailOuTelefone.trim()
+
+    if (!email || !email.includes('@')) {
+      setErro('Digite seu e-mail para receber o link de recuperação.')
+      return
+    }
+
+    setEnviandoRecuperacao(true)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    })
+
+    setEnviandoRecuperacao(false)
+
+    if (error) {
+      setErro('Não foi possível enviar o e-mail de recuperação. Tente novamente.')
+      return
+    }
+
+    setMensagem('Enviamos um link para redefinir sua senha. Confira também a caixa de spam.')
   }
 
   const entrar = async () => {
@@ -138,13 +167,24 @@ export default function Login() {
         Lembrar dos meus dados
       </label>
 
-      <button className="mt-4 block text-[15px] font-semibold text-[#291662]">
-        Esqueceu a senha ?
+      <button
+        type="button"
+        onClick={recuperarSenha}
+        disabled={enviandoRecuperacao}
+        className="mt-4 block text-[15px] font-semibold text-[#291662] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {enviandoRecuperacao ? 'Enviando...' : 'Esqueceu a senha?'}
       </button>
 
       {erro && (
         <p className="mt-4 text-center text-[14px] font-medium text-[#D6479B]">
           {erro}
+        </p>
+      )}
+
+      {mensagem && (
+        <p className="mt-4 text-center text-[14px] font-medium text-[#2EA043]">
+          {mensagem}
         </p>
       )}
 
