@@ -16,7 +16,10 @@ const grupos = [
   { titulo: 'Tipo de vaga', opcoes: ['CLT', 'Temporário', 'Primeiro Emprego'] },
   { titulo: 'Área', opcoes: ['Vendas', 'Administrativo', 'Educação', 'Marketing', 'Limpeza', 'Gastronomia', 'Beleza', 'Cuidados', 'Tecnologia', 'Outros'] },
   { titulo: 'Salário', opcoes: ['Até R$1.500', 'R$1.500–2.500', 'Acima de R$2.500'] },
-  { titulo: 'Compatibilidade', opcoes: ['70%+', '80%+', '90%+'] },
+  {
+    titulo: 'Compatibilidade',
+    opcoes: ['Até 30%', '31% a 50%', '51% a 70%', '71% a 85%', '86% a 100%'],
+  },
   { titulo: 'Distância', opcoes: ['Até 2 km', 'Até 5 km', 'Até 10 km', 'Até 20 km', 'Até 30 km'] },
 ]
 
@@ -88,10 +91,26 @@ function passaSalario(v, opcoes) {
 }
 
 function passaCompatibilidade(compat, opcoes) {
-  const selec = opcoes.filter((o) => o.endsWith('%+'))
+  const faixas = [
+    'Até 30%',
+    '31% a 50%',
+    '51% a 70%',
+    '71% a 85%',
+    '86% a 100%',
+  ]
+
+  const selec = opcoes.filter((o) => faixas.includes(o))
+
   if (selec.length === 0) return true
-  const minimo = Math.min(...selec.map((o) => parseInt(o, 10)))
-  return compat >= minimo
+
+  return selec.some((o) => {
+    if (o === 'Até 30%') return compat <= 30
+    if (o === '31% a 50%') return compat >= 31 && compat <= 50
+    if (o === '51% a 70%') return compat >= 51 && compat <= 70
+    if (o === '71% a 85%') return compat >= 71 && compat <= 85
+    if (o === '86% a 100%') return compat >= 86 && compat <= 100
+    return false
+  })
 }
 
 function passaDistancia(v, opcoes) {
@@ -427,13 +446,25 @@ export default function Vagas() {
             </div>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => setFiltroAberto(false)}
-          className="mt-6 w-full rounded-full bg-[#8F55E9] py-3.5 text-[15px] font-semibold text-white"
-        >
-          Aplicar filtros ({filtros.length})
-        </button>
+        <div className="mt-6 space-y-3">
+          <button
+            type="button"
+            onClick={() => setFiltroAberto(false)}
+            className="w-full rounded-full bg-[#8F55E9] py-3.5 text-[15px] font-semibold text-white"
+          >
+            Aplicar filtros ({filtros.length})
+          </button>
+
+          {filtros.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFiltros([])}
+              className="w-full rounded-full border border-[#8F55E9]/40 py-3.5 text-[15px] font-semibold text-[#291662]"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
       </Modal>
 
       {/* Modal de detalhes da vaga */}
