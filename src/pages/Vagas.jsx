@@ -7,7 +7,7 @@ import { SearchIcon, FilterIcon, PinIcon, GridIcon } from '../components/Icons'
 import { getSalvos, addSalvo } from '../utils/salvos'
 import { getVagas, contarNovasVagas, assinarVagas } from '../utils/vagasService'
 import { getPerfil } from '../utils/profileService'
-import { calcularCompatibilidade } from '../utils/compatibilidade'
+import { calcularCompatibilidade, classificarCompatibilidade } from '../utils/compatibilidade'
 import { calcularDistanciaKm } from '../utils/distancia'
 
 const grupos = [
@@ -252,9 +252,11 @@ export default function Vagas() {
           distancia_km = calcularDistanciaKm(coords.lat, coords.lon, Number(v.latitude), Number(v.longitude))
         }
         const comDist = { ...v, distancia_km }
+        const compat = calcularCompatibilidade(perfil, v)
         return {
           ...comDist,
-          compat: calcularCompatibilidade(perfil, v),
+          compat,
+          compatLabel: classificarCompatibilidade(compat),
           salarioTexto: formatarSalario(v),
           horarioTexto: abreviarHorario(v.horario),
           local: localVaga(v),
@@ -351,7 +353,7 @@ export default function Vagas() {
                       <PinIcon className="h-4 w-4 text-[#E84C8A]" /> {v.localCard || v.local}
                     </p>
                     <p className="mt-2 text-[14px] font-medium text-[#2EA043]">
-                      {perfil ? `${v.compat} % compatível` : 'Complete seu perfil'}
+                      {perfil ? `${v.compat} % · ${v.compatLabel}` : 'Complete seu perfil'}
                     </p>
                   </div>
                   <div className="text-right">
