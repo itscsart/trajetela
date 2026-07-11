@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import UserHeader from '../components/UserHeader'
 import Modal from '../components/Modal'
 import VagaModal from '../components/VagaModal'
 import { SearchIcon, FilterIcon, PinIcon, GridIcon } from '../components/Icons'
 import { getSalvos, addSalvo } from '../utils/salvos'
-import { getVagas, contarNovasVagas } from '../utils/vagasService'
+import { getVagas, contarNovasVagas, assinarVagas } from '../utils/vagasService'
 import { getPerfil } from '../utils/profileService'
 import { calcularCompatibilidade } from '../utils/compatibilidade'
 import { calcularDistanciaKm } from '../utils/distancia'
@@ -25,6 +25,8 @@ const OPCOES_MODALIDADE = ['Presencial', 'Híbrido', 'Remoto']
 const OPCOES_TIPO = ['CLT', 'Temporário', 'Primeiro Emprego']
 const OPCOES_AREA = ['Vendas', 'Administrativo', 'Educação', 'Marketing', 'Limpeza', 'Gastronomia', 'Beleza', 'Cuidados', 'Tecnologia', 'Outros']
 const OPCOES_DISTANCIA = ['Até 2 km', 'Até 5 km', 'Até 10 km', 'Até 20 km', 'Até 30 km']
+
+const LOCAL_SESSAO_KEY = 'trajetela_local_escolha'
 
 function normalizar(texto) {
   return String(texto || '')
@@ -66,6 +68,10 @@ function localCard(v) {
     return base ? `${base} · ${km} km de você` : `${km} km de você`
   }
   return base
+}
+
+function textoNovasVagas(n) {
+  return n === 1 ? '1 nova vaga adicionada' : `${n} novas vagas adicionadas`
 }
 
 function passaSalario(v, opcoes) {
@@ -111,9 +117,18 @@ export default function Vagas() {
   const [busca, setBusca] = useState('')
   const [coords, setCoords] = useState(null)
   const [avisoLocal, setAvisoLocal] = useState('')
+  const [modalLocal, setModalLocal] = useState(false)
+  const montadoRef = useRef(true)
+
+  const recarregar = async () => {
+    const [{ data, error }, novas] = await Promise.all([getVagas(), contarNovasVagas()])
+    if (!montadoRef.current) return
+    if (!error) setVagas(data)
+    setNovasVagas(novas && novas.count ? novas.count : 0)
+  }
 
   useEffect(() => {
-    let ativo = true
+    montadoRef.current = true
 
     async function carregar() {
       setCarregando(true)
@@ -125,7 +140,7 @@ export default function Vagas() {
         getPerfil(),
       ])
 
-      if (!ativo) return
+      if (!montadoRef.current) return
 
       if (error) {
         setErro('Não foi possível carregar as vagas. Tente novamente.')
@@ -141,26 +156,70 @@ export default function Vagas() {
 
     carregar()
 
+    const cancelar = assinarVagas(() => {
+      recarregar()
+    })
+
     return () => {
-      ativo = false
+      montadoRef.current = false
+      cancelar()
     }
   }, [])
 
   useEffect(() => {
+    let escolha = null
+    try {
+      escolha = sessionStorage.getItem(LOCAL_SESSAO_KEY)
+    } catch {
+      escolha = null
+    }
+
+    if (escolha === 'permitir') {
+      solicitarLocalizacao()
+    } else if (escolha === 'negar') {
+      // Já recusou nesta sessão: mantém apenas bairro e zona.
+    } else {
+      setModalLocal(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const registrarEscolha = (valor) => {
+    try {
+      sessionStorage.setItem(LOCAL_SESSAO_KEY, valor)
+    } catch {
+      /* ignora */
+    }
+  }
+
+  const solicitarLocalizacao = () => {
     if (!('geolocation' in navigator)) {
-      setAvisoLocal('Permita a localização para visualizar vagas próximas.')
+      setAvisoLocal('Não foi possível acessar sua localização. Você ainda pode buscar vagas por cidade e bairro.')
       return
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        // Coordenadas usadas apenas em memória durante a sessão (não salvas no banco).
+        if (!montadoRef.current) return
+        // Coordenadas mantidas apenas em memória (não salvas em banco/localStorage).
         setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude })
       },
       () => {
-        setAvisoLocal('Permita a localização para visualizar vagas próximas.')
+        if (!montadoRef.current) return
+        setAvisoLocal('Não foi possível acessar sua localização. Você ainda pode buscar vagas por cidade e bairro.')
       },
     )
-  }, [])
+  }
+
+  const permitirLocalizacao = () => {
+    registrarEscolha('permitir')
+    setModalLocal(false)
+    solicitarLocalizacao()
+  }
+
+  const negarLocalizacao = () => {
+    registrarEscolha('negar')
+    setModalLocal(false)
+  }
 
   const salvarVaga = (v) => {
     const sid = `vaga-${v.id}`
@@ -229,7 +288,7 @@ export default function Vagas() {
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
-      <UserHeader title="Vagas" subtitle={`${novasVagas} novas vagas adicionadas`} />
+      <UserHeader title="Vagas" subtitle={textoNovasVagas(novasVagas)} />
 
       <div className="-mt-5 mb-6 rounded-t-[28px] rounded-b-[32px] border-t border-[#8F55E9]/30 bg-white px-5 pb-8 pt-6">
         {/* Busca */}
@@ -318,6 +377,28 @@ export default function Vagas() {
           )}
         </div>
       </div>
+
+      {/* Modal de permissão de localização */}
+      <Modal open={modalLocal} onClose={negarLocalizacao} title="Encontrar vagas perto de você">
+        <p className="text-[14px] leading-relaxed text-[#291662]/80">
+          O TrajetEla usa sua localização apenas para calcular a distância até as vagas próximas. Sua
+          localização não será salva no banco de dados.
+        </p>
+        <button
+          type="button"
+          onClick={permitirLocalizacao}
+          className="mt-6 block w-full rounded-full bg-[#8F55E9] py-3.5 text-center text-[15px] font-semibold text-white"
+        >
+          Permitir localização
+        </button>
+        <button
+          type="button"
+          onClick={negarLocalizacao}
+          className="mt-3 block w-full rounded-full py-3.5 text-center text-[15px] font-semibold text-[#291662]/70"
+        >
+          Agora não
+        </button>
+      </Modal>
 
       {/* Modal de filtros */}
       <Modal open={filtroAberto} onClose={() => setFiltroAberto(false)} title="Filtros">

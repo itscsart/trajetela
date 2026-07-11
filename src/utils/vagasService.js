@@ -59,3 +59,28 @@ export async function contarNovasVagas() {
 
   return { count: count || 0, error: null }
 }
+
+export function assinarVagas(callback) {
+  const canal = supabase
+    .channel('vagas-realtime')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'vagas' },
+      (payload) => callback(payload),
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'vagas' },
+      (payload) => callback(payload),
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'vagas' },
+      (payload) => callback(payload),
+    )
+    .subscribe()
+
+  return () => {
+    supabase.removeChannel(canal)
+  }
+}
