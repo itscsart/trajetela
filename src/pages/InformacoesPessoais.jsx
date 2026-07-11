@@ -16,15 +16,6 @@ const escolaridades = [
   'Pós-graduação',
 ]
 
-function formatarCpf(valor) {
-  const numeros = valor.replace(/\D/g, '').slice(0, 11)
-
-  return numeros
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
-}
-
 function formatarTelefone(valor) {
   const numeros = valor.replace(/\D/g, '').slice(0, 11)
 
@@ -42,7 +33,6 @@ function formatarTelefone(valor) {
 export default function InformacoesPessoais() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
-  const [cpf, setCpf] = useState('')
   const [telefone, setTelefone] = useState('')
   const [dataNascimento, setDataNascimento] = useState('')
   const [cidade, setCidade] = useState('')
@@ -72,7 +62,6 @@ export default function InformacoesPessoais() {
 
       setNome(perfil.nome || '')
       setEmail(perfil.email || '')
-      setCpf(perfil.cpf || '')
       setTelefone(perfil.telefone || '')
       setDataNascimento(perfil.data_nascimento || '')
       setCidade(perfil.cidade || '')
@@ -96,11 +85,6 @@ export default function InformacoesPessoais() {
   const salvar = async () => {
     limparFeedback()
 
-    if (cpf && cpf.replace(/\D/g, '').length !== 11) {
-      setErro('Digite um CPF com 11 números.')
-      return
-    }
-
     if (telefone && telefone.replace(/\D/g, '').length < 10) {
       setErro('Digite um telefone válido com DDD.')
       return
@@ -109,7 +93,6 @@ export default function InformacoesPessoais() {
     setSalvando(true)
 
     const sucesso = await salvarPerfil({
-      cpf: cpf || null,
       telefone: telefone || null,
       data_nascimento: dataNascimento || null,
       cidade: cidade.trim() || null,
@@ -135,7 +118,7 @@ export default function InformacoesPessoais() {
         <img src={infoImg} alt="" className="h-40 object-contain" />
       </div>
 
-      <div className="px-6 pt-3">
+      <div className="px-6 pt-3 pb-28">
         <h2 className="text-center text-lg font-bold text-[#291662]">
           Seus dados estão seguros com a gente!
         </h2>
@@ -158,17 +141,6 @@ export default function InformacoesPessoais() {
                 value={email}
                 type="email"
                 readOnly
-              />
-
-              <Field
-                label="CPF"
-                value={cpf}
-                onChange={(e) => {
-                  setCpf(formatarCpf(e.target.value))
-                  limparFeedback()
-                }}
-                inputMode="numeric"
-                placeholder="000.000.000-00"
               />
 
               <Field
