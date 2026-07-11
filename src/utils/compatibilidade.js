@@ -1,4 +1,4 @@
-// Cálculo inicial de compatibilidade (0–100) por usuária, com base no perfil.
+// Cálculo de compatibilidade (0–100) por usuária, com base no perfil.
 // O valor NÃO vem da vaga: é calculado individualmente em runtime.
 
 const ORDEM_ESCOLARIDADE = [
@@ -24,62 +24,61 @@ function normalizar(texto) {
 
 function nivelEscolaridade(valor) {
   const alvo = normalizar(valor)
-  const idx = ORDEM_ESCOLARIDADE.findIndex((e) => normalizar(e) === alvo)
-  return idx
+  return ORDEM_ESCOLARIDADE.findIndex((e) => normalizar(e) === alvo)
 }
 
 export function calcularCompatibilidade(perfil, vaga) {
-  if (!perfil || !vaga) return 50
+  // Perfil não carregado: retorna 0 (a tela pode exibir "Complete seu perfil").
+  if (!perfil || !vaga) return 0
 
   let pontos = 0
-  let total = 0
 
-  // Prioridade (peso 30)
-  total += 30
-  const prioridade = normalizar(perfil.prioridade)
-  const tipoVaga = vaga.tipo_vaga
-  if (prioridade === 'emprego') {
-    if (TIPOS_EMPREGO.includes(tipoVaga)) pontos += 30
-  } else if (prioridade === 'freela') {
-    // Freelas são tratados na área Renda Rápida; nesta tela não pontuam alto.
-    pontos += 5
-  } else {
+  const areas = Array.isArray(perfil.areas_interesse) ? perfil.areas_interesse.map(normalizar) : []
+  const areaVaga = normalizar(vaga.area)
+  const areaCombina = areas.length > 0 && !!areaVaga && areas.includes(areaVaga)
+
+  // Área de interesse: 60 pontos (match exato, ignorando acento/caixa)
+  if (areaCombina) pontos += 60
+
+  // Modalidade: 15 pontos
+  if (perfil.tipo_trabalho && vaga.modalidade && normalizar(perfil.tipo_trabalho) === normalizar(vaga.modalidade)) {
     pontos += 15
   }
 
-  // Áreas de interesse (peso 30)
-  total += 30
-  const areas = Array.isArray(perfil.areas_interesse) ? perfil.areas_interesse.map(normalizar) : []
-  if (areas.length > 0 && areas.includes(normalizar(vaga.area))) {
-    pontos += 30
+  // Prioridade: 10 pontos
+  const prioridade = normalizar(perfil.prioridade)
+  if (prioridade === 'emprego') {
+    if (TIPOS_EMPREGO.includes(vaga.tipo_vaga)) pontos += 10
+  } else if (prioridade === 'freela') {
+    // Freelas são tratados na Renda Rápida; não pontuam aqui.
+    pontos += 0
   }
 
-  // Tipo de trabalho x modalidade (peso 20)
-  total += 20
-  if (perfil.tipo_trabalho && vaga.modalidade) {
-    if (normalizar(perfil.tipo_trabalho) === normalizar(vaga.modalidade)) pontos += 20
-  }
-
-  // Localização (peso 10)
-  total += 10
+  // Cidade: 10 pontos
   if (perfil.cidade && vaga.cidade && normalizar(perfil.cidade) === normalizar(vaga.cidade)) {
     pontos += 10
   }
 
-  // Escolaridade mínima (peso 10)
-  total += 10
+  // Escolaridade: 5 pontos (sem compensar com aceita_sem_experiencia)
   if (!vaga.escolaridade_minima) {
-    pontos += 10
+    pontos += 5
   } else {
     const nivelPerfil = nivelEscolaridade(perfil.escolaridade)
     const nivelMinimo = nivelEscolaridade(vaga.escolaridade_minima)
     if (nivelPerfil >= 0 && nivelMinimo >= 0 && nivelPerfil >= nivelMinimo) {
-      pontos += 10
-    } else if (vaga.aceita_sem_experiencia) {
-      pontos += 6
+      pontos += 5
     }
   }
 
-  if (total === 0) return 50
-  return Math.round((pontos / total) * 100)
+  // Bônus de aceita_sem_experiencia: no máximo 3 pontos, só em Primeiro Emprego.
+  if (vaga.aceita_sem_experiencia && normalizar(vaga.tipo_vaga) === 'primeiro emprego') {
+    pontos += 3
+  }
+
+  // Se a área da vaga não está nas áreas de interesse, limitar a 30%.
+  if (!areaCombina) {
+    pontos = Math.min(pontos, 30)
+  }
+
+  return Math.min(pontos, 100)
 }

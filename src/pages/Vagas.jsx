@@ -8,19 +8,22 @@ import { getSalvos, addSalvo } from '../utils/salvos'
 import { getVagas, contarNovasVagas } from '../utils/vagasService'
 import { getPerfil } from '../utils/profileService'
 import { calcularCompatibilidade } from '../utils/compatibilidade'
-
-const chips = ['Recomendadas', 'São Paulo - SP', 'Primeiro Emprego']
+import { calcularDistanciaKm } from '../utils/distancia'
 
 const grupos = [
   { titulo: 'Cidade', opcoes: ['São Paulo', 'Guarulhos', 'Osasco'] },
   { titulo: 'Modalidade', opcoes: ['Presencial', 'Híbrido', 'Remoto'] },
   { titulo: 'Tipo de vaga', opcoes: ['CLT', 'Temporário', 'Primeiro Emprego'] },
-  { titulo: 'Área', opcoes: ['Administrativo', 'Atendimento', 'Financeiro'] },
+  { titulo: 'Área', opcoes: ['Vendas', 'Administrativo', 'Educação', 'Marketing', 'Limpeza', 'Gastronomia', 'Beleza', 'Cuidados', 'Tecnologia', 'Outros'] },
   { titulo: 'Salário', opcoes: ['Até R$1.500', 'R$1.500–2.500', 'Acima de R$2.500'] },
   { titulo: 'Compatibilidade', opcoes: ['70%+', '80%+', '90%+'] },
   { titulo: 'Distância', opcoes: ['Até 2 km', 'Até 5 km', 'Até 10 km', 'Até 20 km', 'Até 30 km'] },
 ]
 
+const OPCOES_CIDADE = ['São Paulo', 'Guarulhos', 'Osasco']
+const OPCOES_MODALIDADE = ['Presencial', 'Híbrido', 'Remoto']
+const OPCOES_TIPO = ['CLT', 'Temporário', 'Primeiro Emprego']
+const OPCOES_AREA = ['Vendas', 'Administrativo', 'Educação', 'Marketing', 'Limpeza', 'Gastronomia', 'Beleza', 'Cuidados', 'Tecnologia', 'Outros']
 const OPCOES_DISTANCIA = ['Até 2 km', 'Até 5 km', 'Até 10 km', 'Até 20 km', 'Até 30 km']
 
 function normalizar(texto) {
@@ -42,9 +45,27 @@ function formatarSalario(v) {
   return ''
 }
 
+function abreviarHorario(horario) {
+  if (!horario) return ''
+  let texto = String(horario)
+  texto = texto.replace(/segunda a sexta/gi, 'Seg a sex')
+  texto = texto.replace(/segunda a s[áa]bado/gi, 'Seg a sáb')
+  texto = texto.replace(/,?\s*das\s+/gi, ', ')
+  return texto
+}
+
 function localVaga(v) {
   const partes = [v.cidade, v.modalidade].filter(Boolean)
   return partes.join(' . ')
+}
+
+function localCard(v) {
+  const base = [v.bairro, v.zona].filter(Boolean).join(' · ')
+  if (v.distancia_km != null) {
+    const km = v.distancia_km < 10 ? v.distancia_km.toFixed(1).replace('.', ',') : String(Math.round(v.distancia_km))
+    return base ? `${base} · ${km} km de você` : `${km} km de você`
+  }
+  return base
 }
 
 function passaSalario(v, opcoes) {
@@ -67,8 +88,16 @@ function passaCompatibilidade(compat, opcoes) {
   return compat >= minimo
 }
 
+function passaDistancia(v, opcoes) {
+  const selec = opcoes.filter((o) => OPCOES_DISTANCIA.includes(o))
+  if (selec.length === 0) return true
+  // Só exclui vagas que possuem distância calculada.
+  if (v.distancia_km == null) return true
+  const limite = Math.max(...selec.map((o) => parseInt(o.replace(/\D/g, ''), 10)))
+  return v.distancia_km <= limite
+}
+
 export default function Vagas() {
-  const [chipsAtivos, setChipsAtivos] = useState(['Recomendadas'])
   const [filtroAberto, setFiltroAberto] = useState(false)
   const [filtros, setFiltros] = useState([])
   const [vagaSel, setVagaSel] = useState(null)
@@ -80,6 +109,8 @@ export default function Vagas() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
+  const [coords, setCoords] = useState(null)
+  const [avisoLocal, setAvisoLocal] = useState('')
 
   useEffect(() => {
     let ativo = true
@@ -115,6 +146,22 @@ export default function Vagas() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!('geolocation' in navigator)) {
+      setAvisoLocal('Permita a localização para visualizar vagas próximas.')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        // Coordenadas usadas apenas em memória durante a sessão (não salvas no banco).
+        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+      },
+      () => {
+        setAvisoLocal('Permita a localização para visualizar vagas próximas.')
+      },
+    )
+  }, [])
+
   const salvarVaga = (v) => {
     const sid = `vaga-${v.id}`
     addSalvo({
@@ -128,37 +175,38 @@ export default function Vagas() {
     setSalvos((prev) => (prev.includes(sid) ? prev : [...prev, sid]))
   }
 
-  const toggleChip = (c) =>
-    setChipsAtivos((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c]))
-
   const toggleFiltro = (op) =>
     setFiltros((p) => (p.includes(op) ? p.filter((x) => x !== op) : [...p, op]))
-
-  const filtrosContam = filtros.filter((f) => !OPCOES_DISTANCIA.includes(f)).length
 
   const vagasProcessadas = useMemo(() => {
     const termo = normalizar(busca)
 
-    const cidadesSel = filtros.filter((f) => ['São Paulo', 'Guarulhos', 'Osasco'].includes(f))
-    const modalidadesSel = filtros.filter((f) => ['Presencial', 'Híbrido', 'Remoto'].includes(f))
-    const tiposSel = filtros.filter((f) => ['CLT', 'Temporário', 'Primeiro Emprego'].includes(f))
-    const areasSel = filtros.filter((f) => ['Administrativo', 'Atendimento', 'Financeiro'].includes(f))
+    const cidadesSel = filtros.filter((f) => OPCOES_CIDADE.includes(f))
+    const modalidadesSel = filtros.filter((f) => OPCOES_MODALIDADE.includes(f))
+    const tiposSel = filtros.filter((f) => OPCOES_TIPO.includes(f))
+    const areasSel = filtros.filter((f) => OPCOES_AREA.includes(f))
 
     return vagas
-      .map((v) => ({
-        ...v,
-        compat: calcularCompatibilidade(perfil, v),
-        salarioTexto: formatarSalario(v),
-        local: localVaga(v),
-      }))
+      .map((v) => {
+        let distancia_km = null
+        if (coords && v.latitude != null && v.longitude != null) {
+          distancia_km = calcularDistanciaKm(coords.lat, coords.lon, Number(v.latitude), Number(v.longitude))
+        }
+        const comDist = { ...v, distancia_km }
+        return {
+          ...comDist,
+          compat: calcularCompatibilidade(perfil, v),
+          salarioTexto: formatarSalario(v),
+          horarioTexto: abreviarHorario(v.horario),
+          local: localVaga(v),
+          localCard: localCard(comDist),
+        }
+      })
       .filter((v) => {
         if (termo) {
           const alvo = [v.titulo, v.empresa, v.area, v.bairro, v.cidade, v.descricao].map(normalizar).join(' ')
           if (!alvo.includes(termo)) return false
         }
-
-        if (chipsAtivos.includes('São Paulo - SP') && normalizar(v.cidade) !== 'sao paulo') return false
-        if (chipsAtivos.includes('Primeiro Emprego') && normalizar(v.tipo_vaga) !== 'primeiro emprego') return false
 
         if (cidadesSel.length && !cidadesSel.some((c) => normalizar(c) === normalizar(v.cidade))) return false
         if (modalidadesSel.length && !modalidadesSel.some((m) => normalizar(m) === normalizar(v.modalidade))) return false
@@ -166,14 +214,18 @@ export default function Vagas() {
         if (areasSel.length && !areasSel.some((a) => normalizar(a) === normalizar(v.area))) return false
         if (!passaSalario(v, filtros)) return false
         if (!passaCompatibilidade(v.compat, filtros)) return false
+        if (!passaDistancia(v, filtros)) return false
 
         return true
       })
       .sort((a, b) => {
         if (b.compat !== a.compat) return b.compat - a.compat
+        const da = a.distancia_km == null ? Infinity : a.distancia_km
+        const db = b.distancia_km == null ? Infinity : b.distancia_km
+        if (da !== db) return da - db
         return new Date(b.created_at || 0) - new Date(a.created_at || 0)
       })
-  }, [vagas, perfil, busca, chipsAtivos, filtros])
+  }, [vagas, perfil, busca, filtros, coords])
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
@@ -205,27 +257,13 @@ export default function Vagas() {
             onClick={() => setFiltroAberto(true)}
             className="flex items-center gap-2 rounded-full border border-[#291662]/20 px-4 py-2 text-[14px] font-medium text-[#291662] active:bg-[#F6F1FE]"
           >
-            <FilterIcon className="h-4 w-4" /> Filtro ({filtrosContam})
+            <FilterIcon className="h-4 w-4" /> Filtro ({filtros.length})
           </button>
         </div>
 
-        {/* Chips roláveis horizontalmente */}
-        <div className="-mx-5 mt-4 flex flex-nowrap gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {chips.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => toggleChip(c)}
-              className={`flex-none whitespace-nowrap rounded-full border px-4 py-2 text-[13px] font-medium transition-colors ${
-                chipsAtivos.includes(c)
-                  ? 'border-[#8F55E9] bg-[#F1EAFD] text-[#8F55E9]'
-                  : 'border-[#291662]/20 text-[#291662]'
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        {avisoLocal && (
+          <p className="mt-3 text-[13px] font-medium text-[#8F55E9]">{avisoLocal}</p>
+        )}
 
         {/* Lista de vagas */}
         <div className="mt-4 space-y-4">
@@ -251,12 +289,14 @@ export default function Vagas() {
                 <div className="mt-3 flex items-start justify-between">
                   <div>
                     <p className="flex items-center gap-1 text-[14px] text-[#291662]">
-                      <PinIcon className="h-4 w-4 text-[#E84C8A]" /> {v.local}
+                      <PinIcon className="h-4 w-4 text-[#E84C8A]" /> {v.localCard || v.local}
                     </p>
-                    <p className="mt-2 text-[14px] font-medium text-[#2EA043]">{v.compat} % compatível</p>
+                    <p className="mt-2 text-[14px] font-medium text-[#2EA043]">
+                      {perfil ? `${v.compat} % compatível` : 'Complete seu perfil'}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[14px] font-bold text-[#291662]">{v.horario}</p>
+                    <p className="text-[14px] font-bold text-[#291662]">{v.horarioTexto}</p>
                     <p className="mt-2 text-[15px] font-bold text-[#291662]">{v.salarioTexto}</p>
                   </div>
                 </div>
@@ -282,38 +322,34 @@ export default function Vagas() {
       {/* Modal de filtros */}
       <Modal open={filtroAberto} onClose={() => setFiltroAberto(false)} title="Filtros">
         <div className="space-y-5">
-          {grupos.map((g) => {
-            const distancia = g.titulo === 'Distância'
-            return (
-              <div key={g.titulo}>
-                <p className="mb-2 text-[14px] font-bold text-[#291662]">{g.titulo}</p>
-                <div className="flex flex-wrap gap-2">
-                  {g.opcoes.map((op) => (
-                    <button
-                      key={op}
-                      type="button"
-                      disabled={distancia}
-                      onClick={() => !distancia && toggleFiltro(op)}
-                      className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-colors ${
-                        filtros.includes(op)
-                          ? 'border-[#8F55E9] bg-[#8F55E9] text-white'
-                          : 'border-[#291662]/20 text-[#291662]'
-                      } ${distancia ? 'cursor-not-allowed opacity-50' : ''}`}
-                    >
-                      {op}
-                    </button>
-                  ))}
-                </div>
+          {grupos.map((g) => (
+            <div key={g.titulo}>
+              <p className="mb-2 text-[14px] font-bold text-[#291662]">{g.titulo}</p>
+              <div className="flex flex-wrap gap-2">
+                {g.opcoes.map((op) => (
+                  <button
+                    key={op}
+                    type="button"
+                    onClick={() => toggleFiltro(op)}
+                    className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-colors ${
+                      filtros.includes(op)
+                        ? 'border-[#8F55E9] bg-[#8F55E9] text-white'
+                        : 'border-[#291662]/20 text-[#291662]'
+                    }`}
+                  >
+                    {op}
+                  </button>
+                ))}
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
         <button
           type="button"
           onClick={() => setFiltroAberto(false)}
           className="mt-6 w-full rounded-full bg-[#8F55E9] py-3.5 text-[15px] font-semibold text-white"
         >
-          Aplicar filtros ({filtrosContam})
+          Aplicar filtros ({filtros.length})
         </button>
       </Modal>
 
