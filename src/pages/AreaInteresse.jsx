@@ -3,42 +3,94 @@ import PageContainer from '../components/PageContainer'
 import HeaderBack from '../components/HeaderBack'
 import { BriefcaseIcon, BoltIcon } from '../components/Icons'
 import areaImg from '../assets/area-interesse.png'
+import { getPerfil, salvarPerfil } from '../utils/profileService'
 
-const areas = ['Vendas', 'Administrativo', 'Educação', 'Marketing', 'Audiovisual', 'Limpeza', 'Gastronomia', 'Outros']
+const areas = [
+  'Vendas',
+  'Administrativo',
+  'Educação',
+  'Marketing',
+  'Limpeza',
+  'Gastronomia',
+  'Beleza',
+  'Cuidados',
+  'Tecnologia',
+  'Outros',
+]
 const tipos = ['Presencial', 'Híbrido', 'Remoto']
-const STORAGE_KEY = 'trajetela_area_interesse'
 
 export default function AreaInteresse() {
   const [prioridade, setPrioridade] = useState('Emprego')
   const [selectedAreas, setSelectedAreas] = useState([])
   const [tipo, setTipo] = useState('Presencial')
+  const [carregando, setCarregando] = useState(true)
+  const [salvando, setSalvando] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [aviso, setAviso] = useState('')
+  const [erro, setErro] = useState('')
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      try {
-        const data = JSON.parse(raw)
-        setPrioridade(data.prioridade ?? 'Emprego')
-        setSelectedAreas(data.selectedAreas ?? [])
-        setTipo(data.tipo ?? 'Presencial')
-      } catch {
-        /* ignora dados inválidos */
+    let ativo = true
+
+    async function carregarDados() {
+      setCarregando(true)
+      setErro('')
+
+      const perfil = await getPerfil()
+
+      if (!ativo) return
+
+      if (perfil) {
+        setPrioridade(perfil.prioridade || 'Emprego')
+        setSelectedAreas(Array.isArray(perfil.areas_interesse) ? perfil.areas_interesse : [])
+        setTipo(perfil.tipo_trabalho || 'Presencial')
       }
+
+      setCarregando(false)
+    }
+
+    carregarDados()
+
+    return () => {
+      ativo = false
     }
   }, [])
 
-  const toggleArea = (area) => {
+  const limparFeedback = () => {
     setSaved(false)
+    setAviso('')
+    setErro('')
+  }
+
+  const toggleArea = (area) => {
+    limparFeedback()
     setSelectedAreas((prev) => {
       if (prev.includes(area)) return prev.filter((a) => a !== area)
-      if (prev.length >= 3) return prev // máximo 3 áreas
+      if (prev.length >= 3) {
+        setAviso('Você pode escolher até 3 áreas de interesse.')
+        return prev
+      }
       return [...prev, area]
     })
   }
 
-  const salvar = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ prioridade, selectedAreas, tipo }))
+  const salvar = async () => {
+    limparFeedback()
+    setSalvando(true)
+
+    const sucesso = await salvarPerfil({
+      prioridade,
+      areas_interesse: selectedAreas,
+      tipo_trabalho: tipo,
+    })
+
+    setSalvando(false)
+
+    if (!sucesso) {
+      setErro('Não foi possível salvar suas preferências. Tente novamente.')
+      return
+    }
+
     setSaved(true)
   }
 
@@ -56,60 +108,77 @@ export default function AreaInteresse() {
           Assim, podemos te mostrar oportunidades que combinam com você.
         </p>
 
-        {/* Prioridade */}
-        <p className="mt-6 text-[13px] font-semibold text-[#291662]">Prioridade</p>
-        <div className="mt-2 grid grid-cols-2 gap-3">
-          <PrioridadeCard
-            ativo={prioridade === 'Emprego'}
-            onClick={() => { setPrioridade('Emprego'); setSaved(false) }}
-            icon={<BriefcaseIcon className="h-7 w-7 text-[#8F55E9]" />}
-            titulo="Emprego"
-            desc="Vagas CLT, meio período, temporário ect."
-          />
-          <PrioridadeCard
-            ativo={prioridade === 'Freela'}
-            onClick={() => { setPrioridade('Freela'); setSaved(false) }}
-            icon={
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#E060A6] to-[#B14AD6] text-white">
-                <BoltIcon className="h-4 w-4" />
-              </span>
-            }
-            titulo="Freela"
-            desc="Trabalhos por projeto, tarefa ou serviço."
-          />
-        </div>
-
-        {/* Áreas de interesse */}
-        <p className="mt-6 text-[15px] font-bold text-[#291662]">Áreas de interesse</p>
-        <p className="text-[13px] text-[#291662]/70">Selecione até 3 áreas principais</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {areas.map((a) => (
-            <Chip key={a} ativo={selectedAreas.includes(a)} onClick={() => toggleArea(a)}>
-              {a}
-            </Chip>
-          ))}
-        </div>
-
-        {/* Tipo de trabalho */}
-        <p className="mt-6 text-[15px] font-bold text-[#291662]">Tipo de trabalho</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {tipos.map((t) => (
-            <Chip key={t} ativo={tipo === t} onClick={() => { setTipo(t); setSaved(false) }}>
-              {t}
-            </Chip>
-          ))}
-        </div>
-
-        <button
-          onClick={salvar}
-          className="mt-7 w-full rounded-xl bg-[#A98BE0] py-3.5 text-[15px] font-semibold text-white shadow-sm active:bg-[#8F55E9]"
-        >
-          Salvar preferências
-        </button>
-        {saved && (
-          <p className="mt-3 text-center text-[14px] font-medium text-[#2EA043]">
-            Preferências salvas com sucesso!
+        {carregando ? (
+          <p className="mt-8 text-center text-[14px] font-medium text-[#291662]/70">
+            Carregando preferências...
           </p>
+        ) : (
+          <>
+            {/* Prioridade */}
+            <p className="mt-6 text-[13px] font-semibold text-[#291662]">Prioridade</p>
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <PrioridadeCard
+                ativo={prioridade === 'Emprego'}
+                onClick={() => { setPrioridade('Emprego'); limparFeedback() }}
+                icon={<BriefcaseIcon className="h-7 w-7 text-[#8F55E9]" />}
+                titulo="Emprego"
+                desc="Vagas CLT, meio período, temporário ect."
+              />
+              <PrioridadeCard
+                ativo={prioridade === 'Freela'}
+                onClick={() => { setPrioridade('Freela'); limparFeedback() }}
+                icon={
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#E060A6] to-[#B14AD6] text-white">
+                    <BoltIcon className="h-4 w-4" />
+                  </span>
+                }
+                titulo="Freela"
+                desc="Trabalhos por projeto, tarefa ou serviço."
+              />
+            </div>
+
+            {/* Áreas de interesse */}
+            <p className="mt-6 text-[15px] font-bold text-[#291662]">Áreas de interesse</p>
+            <p className="text-[13px] text-[#291662]/70">Selecione até 3 áreas principais</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {areas.map((a) => (
+                <Chip key={a} ativo={selectedAreas.includes(a)} onClick={() => toggleArea(a)}>
+                  {a}
+                </Chip>
+              ))}
+            </div>
+            {aviso && (
+              <p className="mt-2 text-[13px] font-medium text-[#D6479B]">{aviso}</p>
+            )}
+
+            {/* Tipo de trabalho */}
+            <p className="mt-6 text-[15px] font-bold text-[#291662]">Tipo de trabalho</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {tipos.map((t) => (
+                <Chip key={t} ativo={tipo === t} onClick={() => { setTipo(t); limparFeedback() }}>
+                  {t}
+                </Chip>
+              ))}
+            </div>
+
+            <button
+              onClick={salvar}
+              disabled={salvando}
+              className="mt-7 w-full rounded-xl bg-[#A98BE0] py-3.5 text-[15px] font-semibold text-white shadow-sm active:bg-[#8F55E9] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {salvando ? 'Salvando...' : 'Salvar preferências'}
+            </button>
+            {erro && (
+              <p className="mt-3 text-center text-[14px] font-medium text-[#D6479B]">
+                {erro}
+              </p>
+            )}
+            {saved && (
+              <p className="mt-3 text-center text-[14px] font-medium text-[#2EA043]">
+                Preferências salvas com sucesso!
+              </p>
+            )}
+          </>
         )}
       </div>
     </PageContainer>
