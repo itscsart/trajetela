@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import perfil from '../assets/perfil.png'
+import { getPerfil } from '../utils/profileService'
 
 /**
  * Cabeçalho roxo com título, subtítulo e avatar (Home, Cursos, Vagas, Renda Rápida).
@@ -7,6 +9,25 @@ import perfil from '../assets/perfil.png'
  */
 export default function UserHeader({ title, subtitle }) {
   const navigate = useNavigate()
+  const [fotoUrl, setFotoUrl] = useState('')
+
+  useEffect(() => {
+    let ativo = true
+
+    async function carregarFoto() {
+      const dados = await getPerfil()
+      if (!ativo) return
+      if (dados?.foto_url) {
+        setFotoUrl(dados.foto_url)
+      }
+    }
+
+    carregarFoto()
+
+    return () => {
+      ativo = false
+    }
+  }, [])
 
   return (
     <div className="bg-gradient-to-b from-[#D7CAF6] to-[#C9B6F1] px-6 pb-10 pt-9">
@@ -20,7 +41,14 @@ export default function UserHeader({ title, subtitle }) {
           aria-label="Abrir perfil"
           className="h-14 w-14 flex-none overflow-hidden rounded-full border-2 border-white shadow-md"
         >
-          <img src={perfil} alt="Daniele" className="h-full w-full object-cover" />
+          <img
+            src={fotoUrl || perfil}
+            alt="Daniele"
+            onError={(e) => {
+              e.currentTarget.src = perfil
+            }}
+            className="h-full w-full object-cover"
+          />
         </button>
       </div>
     </div>
