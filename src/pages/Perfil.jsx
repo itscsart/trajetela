@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import HeaderBack from '../components/HeaderBack'
@@ -6,7 +6,11 @@ import Modal from '../components/Modal'
 import avatar from '../assets/perfil.png'
 import { StarIcon, BriefcaseIcon, ChevronRight } from '../components/Icons'
 import { getUsuario, setLogado } from '../utils/auth'
-import { getPerfil } from '../utils/profileService'
+import { supabase } from '../lib/supabase'
+import { getPerfil, salvarPerfil } from '../utils/profileService'
+
+const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
+const LIMITE_BYTES = 5 * 1024 * 1024
 
 function lerConquistas() {
   try {
@@ -36,28 +40,36 @@ const matchesIniciais = [
 export default function Perfil() {
   const navigate = useNavigate()
   const usuario = getUsuario()
-  const [perfil, setPerfil] = useState(null)
+  const nome = usuario && usuario.nome ? usuario.nome : 'Usuária'
+  const contato = usuario && usuario.emailOuTelefone ? usuario.emailOuTelefone : ''
   const [aberto, setAberto] = useState(null) // 'avaliacao' | 'trabalhos' | 'conquistas' | 'match'
   const [conquistas] = useState(lerConquistas)
   const [matches, setMatches] = useState(matchesIniciais)
   const [feedback, setFeedback] = useState('')
+  const [fotoUrl, setFotoUrl] = useState('')
+  const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const [erroFoto, setErroFoto] = useState('')
+  const inputFotoRef = useRef(null)
+
+  const totalConquistas = 2 + conquistas.length
 
   useEffect(() => {
-    async function carregarPerfil() {
-      const dados = await getPerfil()
+    let ativo = true
 
-      if (dados) {
-        setPerfil(dados)
+    async function carregarPerfil() {
+      const perfil = await getPerfil()
+      if (!ativo) return
+      if (perfil && perfil.foto_url) {
+        setFotoUrl(perfil.foto_url)
       }
     }
 
     carregarPerfil()
+
+    return () => {
+      ativo = false
+    }
   }, [])
-
-  const nome = perfil?.nome || usuario?.nome || 'Usuária'
-  const contato = perfil?.email || usuario?.emailOuTelefone || ''
-
-  const totalConquistas = 2 + conquistas.length
 
   const desfazerMatch = (id) => {
     setMatches((prev) => prev.filter((m) => m.id !== id))
@@ -74,6 +86,64 @@ export default function Perfil() {
     navigate('/login')
   }
 
+  const abrirSeletorFoto = () => {
+    setErroFoto('')
+    if (inputFotoRef.current) inputFotoRef.current.click()
+  }
+
+  const enviarFoto = async (e) => {
+    setErroFoto('')
+    const arquivo = e.target.files && e.target.files[0]
+    if (arquivo) {
+      if (!TIPOS_ACEITOS.includes(arquivo.type)) {
+        setErroFoto('Formato inválido. Envie uma imagem JPG, PNG ou WEBP.')
+        e.target.value = ''
+        return
+      }
+      if (arquivo.size > LIMITE_BYTES) {
+        setErroFoto('A imagem deve ter no máximo 5 MB.')
+        e.target.value = ''
+        return
+      }
+
+      setEnviandoFoto(true)
+      try {
+        const { data: sessao } = await supabase.auth.getUser()
+        const user = sessao && sessao.user
+        if (!user) {
+          setErroFoto('Não foi possível identificar sua conta. Faça login novamente.')
+          setEnviandoFoto(false)
+          e.target.value = ''
+          return
+        }
+
+        const caminho = `${user.id}/avatar`
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type })
+
+        if (uploadError) {
+          setErroFoto('Não foi possível enviar sua foto. Tente novamente.')
+          setEnviandoFoto(false)
+          e.target.value = ''
+          return
+        }
+
+        const { data: publica } = supabase.storage.from('avatars').getPublicUrl(caminho)
+        const url = publica && publica.publicUrl ? `${publica.publicUrl}?t=${Date.now()}` : ''
+
+        await salvarPerfil({ foto_url: url })
+        setFotoUrl(url)
+      } catch {
+        setErroFoto('Não foi possível enviar sua foto. Tente novamente.')
+      } finally {
+        setEnviandoFoto(false)
+        e.target.value = ''
+      }
+    }
+  }
+
   const links = [
     { label: 'Área de interesse', action: () => navigate('/area-interesse') },
     { label: 'Informações pessoais', action: () => navigate('/informacoes-pessoais') },
@@ -86,9 +156,26 @@ export default function Perfil() {
       <HeaderBack to="/home" />
 
       <div className="flex flex-col items-center px-7 pt-2">
-        <div className="h-36 w-36 overflow-hidden rounded-full border-4 border-[#8F55E9]/40 shadow-md">
-          <img src={avatar} alt="Daniele Dourado" className="h-full w-full object-cover" />
-        </div>
+        <button
+          type="button"
+          onClick={abrirSeletorFoto}
+          className="h-36 w-36 overflow-hidden rounded-full border-4 border-[#8F55E9]/40 shadow-md"
+        >
+          <img src={fotoUrl || avatar} alt="Daniele Dourado" className="h-full w-full object-cover" />
+        </button>
+        <input
+          ref={inputFotoRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={enviarFoto}
+          className="hidden"
+        />
+        {enviandoFoto && (
+          <p className="mt-2 text-center text-[13px] font-medium text-[#8F55E9]">Enviando foto...</p>
+        )}
+        {erroFoto && (
+          <p className="mt-2 text-center text-[13px] font-medium text-[#D6479B]">{erroFoto}</p>
+        )}
         <h1 className="mt-4 text-2xl font-extrabold text-[#291662]">{nome}</h1>
         <p className="text-[14px] font-bold text-[#291662]">Aprendiz</p>
         {contato && <p className="mt-1 text-[13px] text-[#291662]/70">{contato}</p>}
