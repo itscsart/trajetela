@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom'
 
 import Splash from './pages/Splash'
 import Login from './pages/Login'
@@ -24,6 +29,7 @@ import InformacoesPessoais from './pages/InformacoesPessoais'
 import ExcluirConta from './pages/ExcluirConta'
 
 import AdminVagas from './pages/admin/AdminVagas'
+import AdminVagaForm from './pages/admin/AdminVagaForm'
 
 import { supabase } from './lib/supabase'
 
@@ -43,7 +49,11 @@ function Protegida({ children }) {
       if (!ativa) return
 
       if (error) {
-        console.error('Erro ao verificar sessão:', error)
+        console.error(
+          'Erro ao verificar sessão:',
+          error,
+        )
+
         setSessao(null)
       } else {
         setSessao(session)
@@ -56,12 +66,14 @@ function Protegida({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_evento, novaSessao) => {
-      if (!ativa) return
+    } = supabase.auth.onAuthStateChange(
+      (_evento, novaSessao) => {
+        if (!ativa) return
 
-      setSessao(novaSessao)
-      setVerificando(false)
-    })
+        setSessao(novaSessao)
+        setVerificando(false)
+      },
+    )
 
     return () => {
       ativa = false
@@ -79,7 +91,9 @@ function Protegida({ children }) {
     )
   }
 
-  return sessao ? children : <Navigate to="/login" replace />
+  return sessao
+    ? children
+    : <Navigate to="/login" replace />
 }
 
 export default function App() {
@@ -87,9 +101,20 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-[#ECE6FA]">
         <Routes>
-          <Route path="/" element={<Splash />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/cadastro" element={<Cadastro />} />
+          <Route
+            path="/"
+            element={<Splash />}
+          />
+
+          <Route
+            path="/login"
+            element={<Login />}
+          />
+
+          <Route
+            path="/cadastro"
+            element={<Cadastro />}
+          />
 
           <Route
             path="/home"
@@ -262,7 +287,30 @@ export default function App() {
             }
           />
 
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route
+            path="/admin/vagas/nova"
+            element={
+              <Protegida>
+                <AdminVagaForm />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/admin/vagas/:id/editar"
+            element={
+              <Protegida>
+                <AdminVagaForm />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="*"
+            element={
+              <Navigate to="/login" replace />
+            }
+          />
         </Routes>
       </div>
     </BrowserRouter>

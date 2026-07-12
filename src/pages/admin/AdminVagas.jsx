@@ -24,6 +24,7 @@ const AREAS = [
   'Educação',
   'Marketing',
   'Audiovisual',
+  'Comunicação Social',
   'Atendimento',
   'Limpeza',
   'Gastronomia',
@@ -249,7 +250,6 @@ export default function AdminVagas() {
 
     if (error) {
       console.error(error)
-
       setErro('Não foi possível excluir a vaga.')
     } else {
       await carregarVagas()
@@ -268,7 +268,10 @@ export default function AdminVagas() {
   if (carregando && !autorizada) {
     return (
       <PageContainer className="bg-[#EFE7FB]">
-        <HeaderBack title="Vagas administrativas" to="/home" />
+        <HeaderBack
+          title="Vagas administrativas"
+          to="/home"
+        />
 
         <p className="px-6 pt-10 text-center text-[14px] font-medium text-[#291662]/70">
           Verificando acesso...
@@ -280,7 +283,10 @@ export default function AdminVagas() {
   if (!autorizada) {
     return (
       <PageContainer className="bg-[#EFE7FB]">
-        <HeaderBack title="Área administrativa" to="/home" />
+        <HeaderBack
+          title="Área administrativa"
+          to="/home"
+        />
 
         <div className="mx-5 mt-8 rounded-3xl border border-[#E84C8A]/25 bg-white p-6 text-center shadow-sm">
           <h1 className="text-[20px] font-bold text-[#291662]">
@@ -288,8 +294,8 @@ export default function AdminVagas() {
           </h1>
 
           <p className="mt-3 text-[14px] leading-relaxed text-[#291662]/70">
-            Esta área está disponível apenas para administradoras
-            do TrajetEla.
+            Esta área está disponível apenas para administradoras do
+            TrajetEla.
           </p>
 
           <button
@@ -306,7 +312,10 @@ export default function AdminVagas() {
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
-      <HeaderBack title="Gerenciar vagas" to="/home" />
+      <HeaderBack
+        title="Gerenciar vagas"
+        to="/home"
+      />
 
       <div className="px-4 pb-28">
         <div className="mt-4 flex items-center justify-between gap-3">
@@ -410,7 +419,10 @@ export default function AdminVagas() {
               <option value="">Todas as áreas</option>
 
               {AREAS.filter(Boolean).map((item) => (
-                <option key={item} value={item}>
+                <option
+                  key={item}
+                  value={item}
+                >
                   {item}
                 </option>
               ))}
@@ -427,13 +439,14 @@ export default function AdminVagas() {
                 Todas as modalidades
               </option>
 
-              {MODALIDADES.filter(Boolean).map(
-                (item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ),
-              )}
+              {MODALIDADES.filter(Boolean).map((item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+              ))}
             </select>
           </div>
 
