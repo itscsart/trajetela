@@ -20,13 +20,19 @@ const CAMPOS = `
   salario_exibir,
   horario,
   data_limite,
+  atividades,
+  observacoes_empresa,
+  informacoes_adicionais,
+  forma_candidatura,
+  endereco_referencia,
   whatsapp_contato,
   email_contato,
   contato_preferido,
   latitude,
   longitude,
   status,
-  created_at
+  created_at,
+  updated_at
 `
 
 export async function getVagas() {
@@ -58,6 +64,20 @@ export async function contarNovasVagas() {
   }
 
   return { count: count || 0, error: null }
+}
+
+export async function getVagaPorId(id) {
+  const { data, error } = await supabase
+    .from('vagas')
+    .select(CAMPOS)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error }
+  }
+
+  return { data: data || null, error: null }
 }
 
 export function assinarVagas(callback) {

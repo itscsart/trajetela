@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import UserHeader from '../components/UserHeader'
 import Modal from '../components/Modal'
-import VagaModal from '../components/VagaModal'
-import { SearchIcon, FilterIcon, PinIcon, GridIcon } from '../components/Icons'
-import { getSalvos, addSalvo } from '../utils/salvos'
+import { SearchIcon, FilterIcon, PinIcon } from '../components/Icons'
 import { getVagas, contarNovasVagas, assinarVagas } from '../utils/vagasService'
 import { getPerfil } from '../utils/profileService'
 import { calcularCompatibilidade, classificarCompatibilidade } from '../utils/compatibilidade'
@@ -105,10 +104,9 @@ function passaDistancia(v, opcoes) {
 }
 
 export default function Vagas() {
+  const navigate = useNavigate()
   const [filtroAberto, setFiltroAberto] = useState(false)
   const [filtros, setFiltros] = useState([])
-  const [vagaSel, setVagaSel] = useState(null)
-  const [salvos, setSalvos] = useState(() => getSalvos().map((s) => s.id))
 
   const [vagas, setVagas] = useState([])
   const [perfil, setPerfil] = useState(null)
@@ -241,21 +239,10 @@ export default function Vagas() {
     setModalLocal(false)
   }
 
-  const salvarVaga = (v) => {
-    const sid = `vaga-${v.id}`
-    addSalvo({
-      id: sid,
-      tipo: 'vaga_clt',
-      titulo: v.titulo,
-      subtitulo: v.empresa,
-      valor: v.salarioTexto,
-      origem: 'Vagas',
-    })
-    setSalvos((prev) => (prev.includes(sid) ? prev : [...prev, sid]))
-  }
-
   const toggleFiltro = (op) =>
     setFiltros((p) => (p.includes(op) ? p.filter((x) => x !== op) : [...p, op]))
+
+  const limparFiltros = () => setFiltros([])
 
   const localValido = !!coords && coords.accuracy <= LIMITE_PRECISAO_METROS
   const distanciaSelecionada = filtros.some((f) => OPCOES_DISTANCIA.includes(f))
@@ -339,14 +326,6 @@ export default function Vagas() {
           <button
             type="button"
             onClick={() => setFiltroAberto(true)}
-            aria-label="Opções de exibição"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#291662]/20 text-[#291662] active:bg-[#F6F1FE]"
-          >
-            <GridIcon className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setFiltroAberto(true)}
             className="flex items-center gap-2 rounded-full border border-[#291662]/20 px-4 py-2 text-[14px] font-medium text-[#291662] active:bg-[#F6F1FE]"
           >
             <FilterIcon className="h-4 w-4" /> Filtro ({filtros.length})
@@ -391,8 +370,8 @@ export default function Vagas() {
                 key={v.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => setVagaSel(v)}
-                onKeyDown={(e) => e.key === 'Enter' && setVagaSel(v)}
+                onClick={() => navigate(`/vagas/${v.id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/vagas/${v.id}`)}
                 className="cursor-pointer rounded-2xl border border-[#8F55E9]/25 bg-white p-4 shadow-sm transition-transform active:scale-[0.99]"
               >
                 <h3 className="text-[17px] font-bold text-[#291662]">{v.titulo}</h3>
@@ -418,7 +397,7 @@ export default function Vagas() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      setVagaSel(v)
+                      navigate(`/vagas/${v.id}`)
                     }}
                     className="text-[15px] font-bold text-[#291662] active:text-[#8F55E9]"
                   >
@@ -485,17 +464,16 @@ export default function Vagas() {
         >
           Aplicar filtros ({filtros.length})
         </button>
+        {filtros.length > 0 && (
+          <button
+            type="button"
+            onClick={limparFiltros}
+            className="mt-3 w-full rounded-full border border-[#8F55E9] py-3.5 text-[15px] font-semibold text-[#291662] active:bg-[#F1EAFD]"
+          >
+            Limpar filtros
+          </button>
+        )}
       </Modal>
-
-      {/* Modal de detalhes da vaga */}
-      <VagaModal
-        open={!!vagaSel}
-        onClose={() => setVagaSel(null)}
-        vaga={vagaSel}
-        salvarLabel="Salvar vaga"
-        salvo={!!vagaSel && salvos.includes(`vaga-${vagaSel.id}`)}
-        onSalvar={() => vagaSel && salvarVaga(vagaSel)}
-      />
     </PageContainer>
   )
 }
