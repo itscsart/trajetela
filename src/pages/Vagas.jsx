@@ -16,10 +16,7 @@ const grupos = [
   { titulo: 'Tipo de vaga', opcoes: ['CLT', 'Temporário', 'Primeiro Emprego'] },
   { titulo: 'Área', opcoes: ['Vendas', 'Administrativo', 'Educação', 'Marketing', 'Limpeza', 'Gastronomia', 'Beleza', 'Cuidados', 'Tecnologia', 'Outros'] },
   { titulo: 'Salário', opcoes: ['Até R$1.500', 'R$1.500–2.500', 'Acima de R$2.500'] },
-  {
-    titulo: 'Compatibilidade',
-    opcoes: ['Até 30%', '31% a 50%', '51% a 70%', '71% a 85%', '86% a 100%'],
-  },
+  { titulo: 'Compatibilidade', opcoes: ['70%+', '80%+', '90%+'] },
   { titulo: 'Distância', opcoes: ['Até 2 km', 'Até 5 km', 'Até 10 km', 'Até 20 km', 'Até 30 km'] },
 ]
 
@@ -30,6 +27,7 @@ const OPCOES_AREA = ['Vendas', 'Administrativo', 'Educação', 'Marketing', 'Lim
 const OPCOES_DISTANCIA = ['Até 2 km', 'Até 5 km', 'Até 10 km', 'Até 20 km', 'Até 30 km']
 
 const LOCAL_SESSAO_KEY = 'trajetela_local_escolha'
+const LIMITE_PRECISAO_METROS = 1000
 
 function normalizar(texto) {
   return String(texto || '')
@@ -91,26 +89,10 @@ function passaSalario(v, opcoes) {
 }
 
 function passaCompatibilidade(compat, opcoes) {
-  const faixas = [
-    'Até 30%',
-    '31% a 50%',
-    '51% a 70%',
-    '71% a 85%',
-    '86% a 100%',
-  ]
-
-  const selec = opcoes.filter((o) => faixas.includes(o))
-
+  const selec = opcoes.filter((o) => o.endsWith('%+'))
   if (selec.length === 0) return true
-
-  return selec.some((o) => {
-    if (o === 'Até 30%') return compat <= 30
-    if (o === '31% a 50%') return compat >= 31 && compat <= 50
-    if (o === '51% a 70%') return compat >= 51 && compat <= 70
-    if (o === '71% a 85%') return compat >= 71 && compat <= 85
-    if (o === '86% a 100%') return compat >= 86 && compat <= 100
-    return false
-  })
+  const minimo = Math.min(...selec.map((o) => parseInt(o, 10)))
+  return compat >= minimo
 }
 
 function passaDistancia(v, opcoes) {
@@ -136,6 +118,7 @@ export default function Vagas() {
   const [busca, setBusca] = useState('')
   const [coords, setCoords] = useState(null)
   const [avisoLocal, setAvisoLocal] = useState('')
+  const [obtendoLocalizacao, setObtendoLocalizacao] = useState(false)
   const [modalLocal, setModalLocal] = useState(false)
   const montadoRef = useRef(true)
 
@@ -216,16 +199,34 @@ export default function Vagas() {
       setAvisoLocal('Não foi possível acessar sua localização. Você ainda pode buscar vagas por cidade e bairro.')
       return
     }
+    setObtendoLocalizacao(true)
+    setAvisoLocal('')
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         if (!montadoRef.current) return
-        // Coordenadas mantidas apenas em memória (não salvas em banco/localStorage).
-        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+        console.log('Localização TrajetEla:', {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        })
+        if (pos.coords.accuracy > LIMITE_PRECISAO_METROS) {
+          // Precisão insuficiente: não usar para calcular distância.
+          setCoords(null)
+          setAvisoLocal('Sua localização está imprecisa. Ative a localização precisa do dispositivo ou tente novamente.')
+        } else {
+          // Coordenadas mantidas apenas em memória (não salvas em banco/localStorage).
+          setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy })
+          setAvisoLocal('')
+        }
+        setObtendoLocalizacao(false)
       },
       () => {
         if (!montadoRef.current) return
+        setCoords(null)
+        setObtendoLocalizacao(false)
         setAvisoLocal('Não foi possível acessar sua localização. Você ainda pode buscar vagas por cidade e bairro.')
       },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
     )
   }
 
@@ -256,6 +257,10 @@ export default function Vagas() {
   const toggleFiltro = (op) =>
     setFiltros((p) => (p.includes(op) ? p.filter((x) => x !== op) : [...p, op]))
 
+  const localValido = !!coords && coords.accuracy <= LIMITE_PRECISAO_METROS
+  const distanciaSelecionada = filtros.some((f) => OPCOES_DISTANCIA.includes(f))
+  const filtroDistanciaBloqueado = distanciaSelecionada && !localValido
+
   const vagasProcessadas = useMemo(() => {
     const termo = normalizar(busca)
 
@@ -263,11 +268,18 @@ export default function Vagas() {
     const modalidadesSel = filtros.filter((f) => OPCOES_MODALIDADE.includes(f))
     const tiposSel = filtros.filter((f) => OPCOES_TIPO.includes(f))
     const areasSel = filtros.filter((f) => OPCOES_AREA.includes(f))
+    // Só aplica o filtro de distância quando há localização precisa.
+    const filtrosDistancia = localValido ? filtros : []
 
     return vagas
       .map((v) => {
         let distancia_km = null
-        if (coords && v.latitude != null && v.longitude != null) {
+        if (
+          coords &&
+          coords.accuracy <= LIMITE_PRECISAO_METROS &&
+          v.latitude != null &&
+          v.longitude != null
+        ) {
           distancia_km = calcularDistanciaKm(coords.lat, coords.lon, Number(v.latitude), Number(v.longitude))
         }
         const comDist = { ...v, distancia_km }
@@ -294,7 +306,7 @@ export default function Vagas() {
         if (areasSel.length && !areasSel.some((a) => normalizar(a) === normalizar(v.area))) return false
         if (!passaSalario(v, filtros)) return false
         if (!passaCompatibilidade(v.compat, filtros)) return false
-        if (!passaDistancia(v, filtros)) return false
+        if (!passaDistancia(v, filtrosDistancia)) return false
 
         return true
       })
@@ -305,7 +317,7 @@ export default function Vagas() {
         if (da !== db) return da - db
         return new Date(b.created_at || 0) - new Date(a.created_at || 0)
       })
-  }, [vagas, perfil, busca, filtros, coords])
+  }, [vagas, perfil, busca, filtros, coords, localValido])
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
@@ -341,8 +353,28 @@ export default function Vagas() {
           </button>
         </div>
 
-        {avisoLocal && (
-          <p className="mt-3 text-[13px] font-medium text-[#8F55E9]">{avisoLocal}</p>
+        {obtendoLocalizacao && (
+          <p className="mt-3 text-[13px] font-medium text-[#8F55E9]">Obtendo localização...</p>
+        )}
+
+        {avisoLocal && !obtendoLocalizacao && (
+          <div className="mt-3">
+            <p className="text-[13px] font-medium text-[#8F55E9]">{avisoLocal}</p>
+            <button
+              type="button"
+              onClick={solicitarLocalizacao}
+              disabled={obtendoLocalizacao}
+              className="mt-1 text-[13px] font-semibold text-[#8F55E9] underline disabled:opacity-50"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {filtroDistanciaBloqueado && !avisoLocal && !obtendoLocalizacao && (
+          <p className="mt-3 text-[13px] font-medium text-[#8F55E9]">
+            Ative uma localização precisa para utilizar o filtro de distância.
+          </p>
         )}
 
         {/* Lista de vagas */}
@@ -446,25 +478,13 @@ export default function Vagas() {
             </div>
           ))}
         </div>
-        <div className="mt-6 space-y-3">
-          <button
-            type="button"
-            onClick={() => setFiltroAberto(false)}
-            className="w-full rounded-full bg-[#8F55E9] py-3.5 text-[15px] font-semibold text-white"
-          >
-            Aplicar filtros ({filtros.length})
-          </button>
-
-          {filtros.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setFiltros([])}
-              className="w-full rounded-full border border-[#8F55E9]/40 py-3.5 text-[15px] font-semibold text-[#291662]"
-            >
-              Limpar filtros
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setFiltroAberto(false)}
+          className="mt-6 w-full rounded-full bg-[#8F55E9] py-3.5 text-[15px] font-semibold text-white"
+        >
+          Aplicar filtros ({filtros.length})
+        </button>
       </Modal>
 
       {/* Modal de detalhes da vaga */}
