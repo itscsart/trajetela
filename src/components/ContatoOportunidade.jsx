@@ -42,9 +42,9 @@ export default function ContatoOportunidade({
   if (!temWhats && !temEmail) {
     return (
       <div className="mt-8">
-        <h3 className="mb-2 text-[16px] font-bold text-[#291662]">Tenho interesse</h3>
+        <h3 className="mb-2 text-[16px] font-bold text-[#291662]">Candidatar-se</h3>
         <p className="rounded-2xl border border-dashed border-[#8F55E9]/40 bg-[#F6F1FE] px-4 py-4 text-center text-[14px] text-[#291662]/70">
-          O contato desta oportunidade ainda não está disponível.
+          Os canais para candidatura ainda não foram disponibilizados pela empresa.
         </p>
       </div>
     )
@@ -56,7 +56,7 @@ export default function ContatoOportunidade({
 
   return (
     <div className="mt-8">
-      <h3 className="mb-3 text-[16px] font-bold text-[#291662]">Tenho interesse</h3>
+      <h3 className="mb-3 text-[16px] font-bold text-[#291662]">Candidatar-se</h3>
       <div className="space-y-3">
         {mostrarWhats && (
           <button

@@ -147,6 +147,7 @@ export default function VagaDetalhe() {
     { titulo: 'Benefícios', conteudo: vaga.beneficios },
     { titulo: 'Observações da empresa', conteudo: vaga.observacoes_empresa },
     { titulo: 'Informações adicionais', conteudo: vaga.informacoes_adicionais },
+    { titulo: 'Endereço de referência', conteudo: vaga.endereco_referencia },
     { titulo: 'Forma de candidatura', conteudo: vaga.forma_candidatura },
   ]
 
