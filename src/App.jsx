@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 import Splash from './pages/Splash'
@@ -21,11 +22,64 @@ import Ajuda from './pages/Ajuda'
 import AreaInteresse from './pages/AreaInteresse'
 import InformacoesPessoais from './pages/InformacoesPessoais'
 import ExcluirConta from './pages/ExcluirConta'
-import { isAutenticada } from './utils/auth'
 
-// Protege páginas internas: exige usuária logada e verificada.
+import AdminVagas from './pages/admin/AdminVagas'
+
+import { supabase } from './lib/supabase'
+
 function Protegida({ children }) {
-  return isAutenticada() ? children : <Navigate to="/login" replace />
+  const [sessao, setSessao] = useState(null)
+  const [verificando, setVerificando] = useState(true)
+
+  useEffect(() => {
+    let ativa = true
+
+    async function carregarSessao() {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession()
+
+      if (!ativa) return
+
+      if (error) {
+        console.error('Erro ao verificar sessão:', error)
+        setSessao(null)
+      } else {
+        setSessao(session)
+      }
+
+      setVerificando(false)
+    }
+
+    carregarSessao()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_evento, novaSessao) => {
+      if (!ativa) return
+
+      setSessao(novaSessao)
+      setVerificando(false)
+    })
+
+    return () => {
+      ativa = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  if (verificando) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#ECE6FA]">
+        <p className="text-[14px] font-medium text-[#291662]/70">
+          Verificando acesso...
+        </p>
+      </div>
+    )
+  }
+
+  return sessao ? children : <Navigate to="/login" replace />
 }
 
 export default function App() {
@@ -33,33 +87,182 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-[#ECE6FA]">
         <Routes>
-          {/* Rotas livres */}
           <Route path="/" element={<Splash />} />
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
 
-          {/* Rotas protegidas */}
-          <Route path="/home" element={<Protegida><Home /></Protegida>} />
-          <Route path="/cursos" element={<Protegida><Cursos /></Protegida>} />
-          <Route path="/vagas" element={<Protegida><Vagas /></Protegida>} />
-          <Route path="/vagas/:id" element={<Protegida><VagaDetalhe /></Protegida>} />
-          <Route path="/renda-rapida" element={<Protegida><RendaRapida /></Protegida>} />
-          <Route path="/freelas" element={<Protegida><Freelas /></Protegida>} />
-          <Route path="/ebook" element={<Protegida><Ebook /></Protegida>} />
-          <Route path="/mais" element={<Protegida><Mais /></Protegida>} />
-          <Route path="/salvos" element={<Protegida><Salvos /></Protegida>} />
-          <Route path="/perfil" element={<Protegida><Perfil /></Protegida>} />
-          <Route path="/ajuda" element={<Protegida><Ajuda /></Protegida>} />
-          <Route path="/area-interesse" element={<Protegida><AreaInteresse /></Protegida>} />
-          <Route path="/informacoes-pessoais" element={<Protegida><InformacoesPessoais /></Protegida>} />
-          <Route path="/excluir-conta" element={<Protegida><ExcluirConta /></Protegida>} />
-          <Route path="/match" element={<Protegida><Match /></Protegida>} />
-          <Route path="/potencia" element={<Protegida><Potencia /></Protegida>} />
-          <Route path="/autoridade-40-minutos" element={<Protegida><Autoridade40 /></Protegida>} />
-          <Route path="/portas-abertas" element={<Protegida><PortasAbertas /></Protegida>} />
+          <Route
+            path="/home"
+            element={
+              <Protegida>
+                <Home />
+              </Protegida>
+            }
+          />
 
-          {/* Fallback */}
-          <Route path="*" element={<Login />} />
+          <Route
+            path="/cursos"
+            element={
+              <Protegida>
+                <Cursos />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/vagas"
+            element={
+              <Protegida>
+                <Vagas />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/vagas/:id"
+            element={
+              <Protegida>
+                <VagaDetalhe />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/renda-rapida"
+            element={
+              <Protegida>
+                <RendaRapida />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/freelas"
+            element={
+              <Protegida>
+                <Freelas />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/ebook"
+            element={
+              <Protegida>
+                <Ebook />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/mais"
+            element={
+              <Protegida>
+                <Mais />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/salvos"
+            element={
+              <Protegida>
+                <Salvos />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/perfil"
+            element={
+              <Protegida>
+                <Perfil />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/ajuda"
+            element={
+              <Protegida>
+                <Ajuda />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/area-interesse"
+            element={
+              <Protegida>
+                <AreaInteresse />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/informacoes-pessoais"
+            element={
+              <Protegida>
+                <InformacoesPessoais />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/excluir-conta"
+            element={
+              <Protegida>
+                <ExcluirConta />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/match"
+            element={
+              <Protegida>
+                <Match />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/potencia"
+            element={
+              <Protegida>
+                <Potencia />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/autoridade-40-minutos"
+            element={
+              <Protegida>
+                <Autoridade40 />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/portas-abertas"
+            element={
+              <Protegida>
+                <PortasAbertas />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/admin/vagas"
+            element={
+              <Protegida>
+                <AdminVagas />
+              </Protegida>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
     </BrowserRouter>
