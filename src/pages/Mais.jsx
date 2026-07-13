@@ -2,10 +2,18 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import HeaderBack from '../components/HeaderBack'
-import { BookIcon, BoltIcon, ClockIcon, GridIcon, DoorIcon } from '../components/Icons'
+import {
+  BookIcon,
+  BoltIcon,
+  ClockIcon,
+  GridIcon,
+  DoorIcon,
+} from '../components/Icons'
 import { supabase } from '../lib/supabase'
 
-function BookmarkIcon({ className = 'w-6 h-6' }) {
+function BookmarkIcon({
+  className = 'w-6 h-6',
+}) {
   return (
     <svg
       className={className}
@@ -22,18 +30,46 @@ function BookmarkIcon({ className = 'w-6 h-6' }) {
 }
 
 const itens = [
-  { label: 'E-book', path: '/ebook', Icon: BookIcon },
-  { label: 'Salvos', path: '/salvos', Icon: BookmarkIcon },
-  { label: 'TrajetEla Potência', path: '/potencia', Icon: BoltIcon },
-  { label: 'Autoridade por 40 minutos', path: '/autoridade-40-minutos', Icon: ClockIcon },
-  { label: 'Match', path: '/match', Icon: GridIcon },
-  { label: 'Portas Abertas', path: '/portas-abertas', Icon: DoorIcon },
+  {
+    label: 'E-book',
+    path: '/ebook',
+    Icon: BookIcon,
+  },
+  {
+    label: 'Salvos',
+    path: '/salvos',
+    Icon: BookmarkIcon,
+  },
+  {
+    label: 'TrajetEla Potência',
+    path: '/potencia',
+    Icon: BoltIcon,
+  },
+  {
+    label: 'Autoridade por 40 minutos',
+    path: '/autoridade-40-minutos',
+    Icon: ClockIcon,
+  },
+  {
+    label: 'Match',
+    path: '/match',
+    Icon: GridIcon,
+  },
+  {
+    label: 'Portas Abertas',
+    path: '/portas-abertas',
+    Icon: DoorIcon,
+  },
 ]
 
 export default function Mais() {
   const navigate = useNavigate()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [verificandoAdmin, setVerificandoAdmin] = useState(true)
+
+  const [isAdmin, setIsAdmin] =
+    useState(false)
+
+  const [verificandoAdmin, setVerificandoAdmin] =
+    useState(true)
 
   useEffect(() => {
     let ativa = true
@@ -52,19 +88,26 @@ export default function Mais() {
         return
       }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
+      const { data, error } =
+        await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
 
       if (!ativa) return
 
       if (error) {
-        console.error('Erro ao verificar perfil administrativo:', error)
+        console.error(
+          'Erro ao verificar perfil administrativo:',
+          error,
+        )
+
         setIsAdmin(false)
       } else {
-        setIsAdmin(data?.role === 'admin')
+        setIsAdmin(
+          data?.role === 'admin',
+        )
       }
 
       setVerificandoAdmin(false)
@@ -91,34 +134,45 @@ export default function Mais() {
         </p>
 
         <div className="mt-10 space-y-7">
-          {itens.map(({ label, path, Icon }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => navigate(path)}
-              className="flex w-full items-center gap-4 text-left"
-            >
-              <Icon className="h-6 w-6 text-[#291662]" />
+          {itens.map(
+            ({
+              label,
+              path,
+              Icon,
+            }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() =>
+                  navigate(path)
+                }
+                className="flex w-full items-center gap-4 text-left"
+              >
+                <Icon className="h-6 w-6 text-[#291662]" />
 
-              <span className="text-[16px] text-[#291662]">
-                {label}
-              </span>
-            </button>
-          ))}
-
-          {!verificandoAdmin && isAdmin && (
-            <button
-              type="button"
-              onClick={() => navigate('/admin/vagas')}
-              className="flex w-full items-center gap-4 text-left"
-            >
-              <DoorIcon className="h-6 w-6 text-[#8F55E9]" />
-
-              <span className="text-[16px] font-semibold text-[#8F55E9]">
-                Painel administrativo
-              </span>
-            </button>
+                <span className="text-[16px] text-[#291662]">
+                  {label}
+                </span>
+              </button>
+            ),
           )}
+
+          {!verificandoAdmin &&
+            isAdmin && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/admin')
+                }
+                className="flex w-full items-center gap-4 text-left"
+              >
+                <DoorIcon className="h-6 w-6 text-[#8F55E9]" />
+
+                <span className="text-[16px] font-semibold text-[#8F55E9]">
+                  Painel administrativo
+                </span>
+              </button>
+            )}
         </div>
       </div>
     </PageContainer>

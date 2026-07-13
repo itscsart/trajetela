@@ -28,8 +28,11 @@ import AreaInteresse from './pages/AreaInteresse'
 import InformacoesPessoais from './pages/InformacoesPessoais'
 import ExcluirConta from './pages/ExcluirConta'
 
+import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminVagas from './pages/admin/AdminVagas'
 import AdminVagaForm from './pages/admin/AdminVagaForm'
+import AdminFreelas from './pages/admin/AdminFreelas'
+import AdminFreelaForm from './pages/admin/AdminFreelaForm'
 
 import { supabase } from './lib/supabase'
 
@@ -279,6 +282,15 @@ export default function App() {
           />
 
           <Route
+            path="/admin"
+            element={
+              <Protegida>
+                <AdminDashboard />
+              </Protegida>
+            }
+          />
+
+          <Route
             path="/admin/vagas"
             element={
               <Protegida>
@@ -301,6 +313,33 @@ export default function App() {
             element={
               <Protegida>
                 <AdminVagaForm />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/admin/freelas"
+            element={
+              <Protegida>
+                <AdminFreelas />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/admin/freelas/novo"
+            element={
+              <Protegida>
+                <AdminFreelaForm />
+              </Protegida>
+            }
+          />
+
+          <Route
+            path="/admin/freelas/:id/editar"
+            element={
+              <Protegida>
+                <AdminFreelaForm />
               </Protegida>
             }
           />
