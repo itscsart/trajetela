@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import UserHeader from '../components/UserHeader'
 import Modal from '../components/Modal'
+import JornadaCard from '../components/JornadaCard'
 import { CalendarIcon, ClockIcon, UserPinIcon, PinIcon, ChevronRight } from '../components/Icons'
 import { getPerfil } from '../utils/profileService'
 import { getVagas, assinarVagas } from '../utils/vagasService'
@@ -143,30 +144,8 @@ export default function Home() {
       <UserHeader title={saudacao} subtitle="O que você quer conquistar hoje?" />
 
       <div className="-mt-5 mb-6 min-h-[60vh] rounded-t-[28px] rounded-b-[32px] border-t border-[#8F55E9]/30 bg-white px-5 pb-8 pt-6">
-        {/* Sua Jornada (card inteiro clicável → Cursos) */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => navigate('/cursos')}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('/cursos')}
-          className="cursor-pointer rounded-2xl border border-[#8F55E9]/20 bg-[#F6F1FE] p-4 shadow-sm transition-transform active:scale-[0.99]"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h2 className="text-lg font-bold text-[#291662]">Sua Jornada</h2>
-              <p className="mt-0.5 text-[13px] text-[#291662]/80">Objetivo atual: conseguir renda própria</p>
-            </div>
-            <div className="ml-2 text-3xl">🛍️</div>
-          </div>
-          <div className="mt-3 flex items-center gap-2">
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#E0D4F5]">
-              <div className="h-full rounded-full bg-[#8F55E9]" style={{ width: '35%' }} />
-            </div>
-            <span className="text-[13px] font-bold text-[#291662]">35%</span>
-          </div>
-          <p className="mt-3 text-[12px] text-[#291662]/70">Próxima etapa:</p>
-          <p className="text-[13px] font-medium text-[#291662]">Curso: Como montar seu currículo</p>
-        </div>
+        {/* Sua Jornada (metas reais por usuária) */}
+        <JornadaCard />
 
         {/* Renda rápida para você */}
         <SectionHeader title="Renda rápida para você" action="Ver todas" onAction={() => navigate('/freelas')} />
