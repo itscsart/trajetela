@@ -1,55 +1,142 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import UserHeader from '../components/UserHeader'
 import Modal from '../components/Modal'
-import VagaModal from '../components/VagaModal'
-import { HeartIcon } from '../components/Icons'
+import { CalendarIcon, ClockIcon, UserPinIcon, PinIcon, ChevronRight } from '../components/Icons'
 import { getPerfil } from '../utils/profileService'
+import { getVagas, assinarVagas } from '../utils/vagasService'
+import {
+  getFreelasAtivos,
+  assinarFreelas,
+  formatarValor,
+  formatarData,
+} from '../utils/freelasService'
+import { useLocalizacao, distanciaValida, formatarDistancia } from '../utils/geolocalizacao'
 
-const vagas = [
-  { id: 'cozinha', titulo: 'Auxiliar de cozinha', compat: 92, bg: 'bg-[#FBE3C9]', emoji: '🍳', empresa: 'Restaurante Sabor & Cia', local: 'São Paulo - SP', modalidade: 'Presencial', horario: '08:00 às 16:00', salario: 'R$1.600', descricao: 'Apoio no preparo de alimentos, organização da cozinha e higienização de utensílios.' },
-  { id: 'limpeza', titulo: 'Auxiliar de limpeza', compat: 86, bg: 'bg-[#E6D6F8]', emoji: '🧹', empresa: 'Clean Mais', local: 'São Paulo - SP', modalidade: 'Presencial', horario: '07:00 às 15:00', salario: 'R$1.500', descricao: 'Limpeza e conservação de ambientes corporativos, com material fornecido pela empresa.' },
-  { id: 'caixa', titulo: 'Operador de Caixa', compat: 65, bg: 'bg-[#E2E2E2]', emoji: '🧮', empresa: 'Mercado Bom Preço', local: 'São Paulo - SP', modalidade: 'Presencial', horario: '14:00 às 22:00', salario: 'R$1.700', descricao: 'Atendimento no caixa, registro de produtos e fechamento de vendas.' },
-]
-
+// Cursos permanecem como mock visual nesta etapa (módulo ainda não integrado ao banco).
 const cursos = [
   { id: 'curriculo', titulo: 'Crie seu Currículo', pct: 87, bg: 'bg-[#DDF1E4]', emoji: '📄', descricao: 'Monte um currículo profissional do zero, destacando suas experiências e habilidades.' },
   { id: 'primeiro-emprego', titulo: 'Primeiro emprego', pct: 40, bg: 'bg-[#E6D6F8]', emoji: '🎯', descricao: 'Dicas práticas para conquistar sua primeira oportunidade no mercado de trabalho.' },
   { id: 'marketing-digital', titulo: 'Marketing digital básico', pct: 10, bg: 'bg-[#FBE3C9]', emoji: '📣', descricao: 'Fundamentos de marketing digital para divulgar produtos, serviços e a sua marca.' },
 ]
 
+// Formatador de salário local (vagasService não expõe um). Não inventa valores.
+function formatarSalario(v) {
+  if (!v) return 'A combinar'
+  if (v.salario_exibir) return v.salario_exibir
+  const fmt = (n) => `R$${Number(n).toLocaleString('pt-BR')}`
+  if (v.salario_min != null && v.salario_max != null) {
+    return v.salario_min === v.salario_max ? fmt(v.salario_min) : `${fmt(v.salario_min)} – ${fmt(v.salario_max)}`
+  }
+  if (v.salario_min != null) return fmt(v.salario_min)
+  if (v.salario_max != null) return fmt(v.salario_max)
+  return 'A combinar'
+}
+
+function localVagaTexto(v) {
+  const partes = [v.cidade, v.modalidade].filter(Boolean)
+  return partes.join(' · ')
+}
+
 export default function Home() {
   const navigate = useNavigate()
-  const [favoritos, setFavoritos] = useState([])
-  const [vagaSel, setVagaSel] = useState(null)
-  const [cursoSel, setCursoSel] = useState(null)
   const [primeiroNome, setPrimeiroNome] = useState('')
+  const [cursoSel, setCursoSel] = useState(null)
 
+  const [vagas, setVagas] = useState([])
+  const [carregandoVagas, setCarregandoVagas] = useState(true)
+  const [erroVagas, setErroVagas] = useState('')
+
+  const [freelas, setFreelas] = useState([])
+  const [carregandoFreelas, setCarregandoFreelas] = useState(true)
+  const [erroFreelas, setErroFreelas] = useState('')
+
+  const montadoRef = useRef(true)
+  const { coords } = useLocalizacao()
+
+  // Nome real (mantém a única consulta de perfil já existente).
   useEffect(() => {
     let ativo = true
-
     async function carregarNome() {
       const perfil = await getPerfil()
       const nomeCompleto = perfil?.nome?.trim() || ''
       const primeiro = nomeCompleto ? nomeCompleto.split(/\s+/)[0] : ''
-
-      if (ativo) {
-        setPrimeiroNome(primeiro)
-      }
+      if (ativo) setPrimeiroNome(primeiro)
     }
-
     carregarNome()
-
     return () => {
       ativo = false
     }
   }, [])
 
+  // Vagas reais + realtime (erro em vagas não afeta freelas).
+  const carregarVagas = async () => {
+    const { data, error } = await getVagas()
+    if (!montadoRef.current) return
+    if (error) {
+      setErroVagas('Não foi possível carregar as vagas.')
+    } else {
+      setErroVagas('')
+      setVagas(data || [])
+    }
+    setCarregandoVagas(false)
+  }
+
+  // Freelas reais + realtime (erro em freelas não afeta vagas).
+  const carregarFreelas = async () => {
+    const { data, error } = await getFreelasAtivos()
+    if (!montadoRef.current) return
+    if (error) {
+      setErroFreelas('Não foi possível carregar as oportunidades.')
+    } else {
+      setErroFreelas('')
+      setFreelas(data || [])
+    }
+    setCarregandoFreelas(false)
+  }
+
+  useEffect(() => {
+    montadoRef.current = true
+    carregarVagas()
+    carregarFreelas()
+
+    const cancelarVagas = assinarVagas(() => carregarVagas())
+    const cancelarFreelas = assinarFreelas(() => carregarFreelas())
+
+    return () => {
+      montadoRef.current = false
+      cancelarVagas()
+      cancelarFreelas()
+    }
+  }, [])
+
   const saudacao = primeiroNome ? `Olá, ${primeiroNome}!` : 'Olá!'
 
-  const toggleFavorito = (id) =>
-    setFavoritos((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
+  const vagasView = useMemo(
+    () =>
+      vagas.slice(0, 3).map((v) => ({
+        ...v,
+        salarioTexto: formatarSalario(v),
+        localTexto: localVagaTexto(v),
+      })),
+    [vagas],
+  )
+
+  const freelasView = useMemo(
+    () =>
+      freelas.slice(0, 3).map((f) => {
+        const distancia_km = distanciaValida(coords, f.latitude, f.longitude)
+        return {
+          ...f,
+          valorTexto: formatarValor(f),
+          dataTexto: formatarData(f.data_servico),
+          distanciaTexto: formatarDistancia(distancia_km),
+          localCard: [f.bairro, f.cidade].filter(Boolean).join(' · '),
+        }
+      }),
+    [freelas, coords],
+  )
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
@@ -81,45 +168,87 @@ export default function Home() {
           <p className="text-[13px] font-medium text-[#291662]">Curso: Como montar seu currículo</p>
         </div>
 
+        {/* Renda rápida para você */}
+        <SectionHeader title="Renda rápida para você" action="Ver todas" onAction={() => navigate('/freelas')} />
+        {carregandoFreelas ? (
+          <EstadoTexto>Carregando oportunidades...</EstadoTexto>
+        ) : erroFreelas ? (
+          <EstadoTexto erro>{erroFreelas}</EstadoTexto>
+        ) : freelasView.length === 0 ? (
+          <EstadoVazio>Nenhuma oportunidade de renda rápida no momento.</EstadoVazio>
+        ) : (
+          <div className="rounded-2xl border border-[#F3B6C9]/60 bg-white p-2 shadow-sm">
+            {freelasView.map((f, i) => (
+              <div
+                key={f.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/freelas/${f.id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/freelas/${f.id}`)}
+                className={`flex cursor-pointer items-center gap-3 px-2 py-3 transition-colors active:bg-[#F6F1FE] ${
+                  i < freelasView.length - 1 ? 'border-b border-[#291662]/10' : ''
+                }`}
+              >
+                <div className="flex h-12 w-12 flex-none items-center justify-center rounded-xl bg-[#F1EAFD] text-[#8F55E9]">
+                  <UserPinIcon className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-[#291662]">{f.titulo}</p>
+                  {f.contratante && <p className="text-[13px] text-[#291662]/70">{f.contratante}</p>}
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-[#291662]/75">
+                    <span className="flex items-center gap-0.5">
+                      <UserPinIcon className="h-3.5 w-3.5" /> {f.distanciaTexto ? `${f.distanciaTexto} de você` : (f.localCard || '—')}
+                    </span>
+                    {f.dataTexto && <span className="flex items-center gap-0.5"><CalendarIcon className="h-3.5 w-3.5" /> {f.dataTexto}</span>}
+                    {f.horario && <span className="flex items-center gap-0.5"><ClockIcon className="h-3.5 w-3.5" /> {f.horario}</span>}
+                  </div>
+                </div>
+                <span className="flex items-center gap-0.5 font-bold text-[#D6479B]">
+                  {f.valorTexto} <ChevronRight className="h-4 w-4" />
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Vagas recomendadas */}
         <SectionHeader title="Vagas recomendadas" action="Ver todas" onAction={() => navigate('/vagas')} />
-        <div className="rounded-2xl border border-[#F0C98B]/60 bg-white p-2 shadow-sm">
-          {vagas.map((v, i) => {
-            const fav = favoritos.includes(v.id)
-            return (
+        {carregandoVagas ? (
+          <EstadoTexto>Carregando vagas...</EstadoTexto>
+        ) : erroVagas ? (
+          <EstadoTexto erro>{erroVagas}</EstadoTexto>
+        ) : vagasView.length === 0 ? (
+          <EstadoVazio>Nenhuma vaga disponível no momento.</EstadoVazio>
+        ) : (
+          <div className="rounded-2xl border border-[#F0C98B]/60 bg-white p-2 shadow-sm">
+            {vagasView.map((v, i) => (
               <div
                 key={v.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => setVagaSel(v)}
-                onKeyDown={(e) => e.key === 'Enter' && setVagaSel(v)}
+                onClick={() => navigate(`/vagas/${v.id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/vagas/${v.id}`)}
                 className={`flex cursor-pointer items-center gap-3 px-2 py-3 transition-colors active:bg-[#F6F1FE] ${
-                  i < vagas.length - 1 ? 'border-b border-[#291662]/10' : ''
+                  i < vagasView.length - 1 ? 'border-b border-[#291662]/10' : ''
                 }`}
               >
-                <div className={`flex h-12 w-12 flex-none items-center justify-center rounded-xl text-2xl ${v.bg}`}>
-                  {v.emoji}
+                <div className="flex h-12 w-12 flex-none items-center justify-center rounded-xl bg-[#F6F1FE] text-[#8F55E9]">
+                  <PinIcon className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
                   <p className="font-bold text-[#291662]">{v.titulo}</p>
-                  <p className="text-[14px] text-[#291662]/70">{v.compat} % compatível</p>
+                  {v.empresa && <p className="text-[13px] text-[#291662]/70">{v.empresa}</p>}
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-[#291662]/75">
+                    {v.localTexto && <span className="flex items-center gap-0.5"><PinIcon className="h-3.5 w-3.5" /> {v.localTexto}</span>}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  aria-label={fav ? 'Desfavoritar vaga' : 'Favoritar vaga'}
-                  aria-pressed={fav}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleFavorito(v.id)
-                  }}
-                  className="p-1 text-[#E84C8A] transition-transform active:scale-90"
-                >
-                  <HeartIcon className="h-6 w-6" filled={fav} />
-                </button>
+                <span className="flex items-center gap-0.5 font-bold text-[#291662]">
+                  {v.salarioTexto} <ChevronRight className="h-4 w-4 text-[#291662]/50" />
+                </span>
               </div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Cursos para você */}
         <SectionHeader title="Cursos para você" action="Ver todas" onAction={() => navigate('/cursos')} />
@@ -143,9 +272,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Modais */}
-      <VagaModal open={!!vagaSel} onClose={() => setVagaSel(null)} vaga={vagaSel} />
-
+      {/* Modal de curso (mantido) */}
       <Modal open={!!cursoSel} onClose={() => setCursoSel(null)} title={cursoSel?.titulo}>
         {cursoSel && (
           <>
@@ -182,6 +309,22 @@ function SectionHeader({ title, action, onAction }) {
           {action}
         </button>
       )}
+    </div>
+  )
+}
+
+function EstadoTexto({ children, erro = false }) {
+  return (
+    <p className={`py-6 text-center text-[14px] font-medium ${erro ? 'text-[#D6479B]' : 'text-[#291662]/70'}`}>
+      {children}
+    </p>
+  )
+}
+
+function EstadoVazio({ children }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#8F55E9]/40 bg-[#F6F1FE] px-4 py-6 text-center text-[14px] text-[#291662]/70">
+      {children}
     </div>
   )
 }
