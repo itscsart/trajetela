@@ -1,131 +1,188 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import UserHeader from '../components/UserHeader'
 import Modal from '../components/Modal'
-import VagaModal from '../components/VagaModal'
 import { CalendarIcon, ClockIcon, UserPinIcon, ChevronRight, MoneyIcon, StarIcon } from '../components/Icons'
-import { getSalvos, addSalvo } from '../utils/salvos'
+import {
+  getFreelasAtivos,
+  getFreelaDestaque,
+  contarFreelasAtivos,
+  assinarFreelas,
+  formatarValor,
+  formatarData,
+} from '../utils/freelasService'
+import {
+  getFreelasConcluidos,
+  getAvaliacoes,
+  getUsuariaId,
+  assinarRegistrosUsuaria,
+  totalDoMes,
+  formatarReais,
+  mediaReputacao,
+} from '../utils/freelasRealizadosService'
+import { useLocalizacao, distanciaValida, formatarDistancia } from '../utils/geolocalizacao'
 
-const destaque = {
-  id: 'recepcionista-evento',
-  titulo: 'Recepcionista de Evento',
-  empresa: 'Eventos SP',
-  local: '2,4 km de você',
-  modalidade: 'Presencial',
-  horario: 'Hoje, 20:00h',
-  salario: 'R$ 180',
-  descricao: 'Recepção e credenciamento de convidados em evento corporativo. Não é necessária experiência prévia.',
+function ContatoFreela({ freela }) {
+  const whats = (freela?.whatsapp_contato || '').toString().replace(/\D/g, '')
+  const mail = (freela?.email_contato || '').toString().trim()
+  const pref = (freela?.contato_preferido || '').toString().toLowerCase()
+  const titulo = freela?.titulo || ''
+  const mensagem = `Olá! Tenho interesse no freela de ${titulo} publicado no TrajetEla.`
+
+  const temWhats = !!whats
+  const temEmail = !!mail
+  if (!temWhats && !temEmail) return null
+
+  const usarWhats = temWhats && (pref === 'whatsapp' || pref === 'ambos' || !pref || !temEmail)
+  const href = usarWhats
+    ? `https://wa.me/${whats}?text=${encodeURIComponent(mensagem)}`
+    : `mailto:${mail}?subject=${encodeURIComponent(`Interesse no freela de ${titulo}`)}&body=${encodeURIComponent(mensagem)}`
+
+  return (
+    <a
+      href={href}
+      target={usarWhats ? '_blank' : undefined}
+      rel={usarWhats ? 'noopener noreferrer' : undefined}
+      className="flex-1 rounded-full bg-gradient-to-r from-[#E060A6] to-[#B14AD6] py-2.5 text-center text-[13px] font-semibold text-white transition-transform active:scale-95"
+    >
+      Tenho interesse
+    </a>
+  )
 }
-
-const outras = [
-  { id: 'garconete', titulo: 'Garçonete', km: '7,0 km', dia: 'Sexta', hora: '14:00h', valor: 'R$180', bg: 'bg-[#FBE3C9]', emoji: '🍽️', empresa: 'Buffet Real', local: '7,0 km de você', modalidade: 'Presencial', horario: 'Sexta, 14:00h', salario: 'R$180', descricao: 'Atendimento às mesas e apoio no salão durante evento.' },
-  { id: 'limpeza', titulo: 'Auxiliar de limpeza', km: '15 km', dia: 'Sábado', hora: '8:00h', valor: 'R$200', bg: 'bg-[#E6D6F8]', emoji: '🧹', empresa: 'Clean Mais', local: '15 km de você', modalidade: 'Presencial', horario: 'Sábado, 8:00h', salario: 'R$200', descricao: 'Limpeza pós-evento de espaço para festas.' },
-  { id: 'producao', titulo: 'Assistente de produção', km: '11,5 km', dia: '3 dias', hora: null, valor: 'R$600', bg: 'bg-[#E2E2E2]', emoji: '📦', empresa: 'Produtora Cena', local: '11,5 km de você', modalidade: 'Presencial', horario: 'Por 3 dias', salario: 'R$600', descricao: 'Apoio à equipe de produção na montagem e logística do evento.' },
-]
-
-const rendimentos = [
-  { titulo: 'Recepcionista de Evento', valor: 'R$ 180' },
-  { titulo: 'Garçonete', valor: 'R$ 180' },
-  { titulo: 'Auxiliar de limpeza', valor: 'R$ 200' },
-  { titulo: 'Assistente de produção', valor: 'R$ 220' },
-]
-
-const avaliacoes = [
-  {
-    id: 'eventos-sp',
-    contratante: 'Eventos SP',
-    servico: 'Recepcionista de Evento',
-    data: '12/06/2026',
-    nota: '8.0',
-    comentarioCurto: 'Pontual, educada e muito comprometida.',
-    comentarioCompleto:
-      'Daniele chegou no horário, atendeu bem os convidados e demonstrou muita responsabilidade durante todo o evento.',
-  },
-  {
-    id: 'buffet-central',
-    contratante: 'Buffet Central',
-    servico: 'Garçonete',
-    data: '08/06/2026',
-    nota: '7.5',
-    comentarioCurto: 'Trabalhou bem em equipe e entregou tudo corretamente.',
-    comentarioCompleto:
-      'Teve boa postura, ajudou a equipe durante o atendimento e concluiu as atividades combinadas.',
-  },
-  {
-    id: 'producoes-abc',
-    contratante: 'Produções ABC',
-    servico: 'Assistente de produção',
-    data: '03/06/2026',
-    nota: '7.3',
-    comentarioCurto: 'Boa comunicação e responsabilidade.',
-    comentarioCompleto:
-      'Manteve boa comunicação com a equipe, seguiu as orientações e demonstrou comprometimento.',
-  },
-]
 
 export default function RendaRapida() {
   const navigate = useNavigate()
-  const [vagaSel, setVagaSel] = useState(null)
   const [saldoAberto, setSaldoAberto] = useState(false)
   const [reputacaoAberta, setReputacaoAberta] = useState(false)
-  const [salvos, setSalvos] = useState(() => getSalvos().map((s) => s.id))
-
-  const salvarFreela = (f) => {
-    const sid = `freela-${f.id}`
-    addSalvo({
-      id: sid,
-      tipo: 'freela',
-      titulo: f.titulo,
-      subtitulo: f.horario || f.quando || '',
-      valor: f.salario || f.valor || '',
-      origem: 'Renda Rápida',
-    })
-    setSalvos((prev) => (prev.includes(sid) ? prev : [...prev, sid]))
-  }
   const [avaliacaoSel, setAvaliacaoSel] = useState(null)
 
-  const whatsappDestaque =
-    'https://wa.me/5511999999999?text=Ol%C3%A1%21%20Tenho%20interesse%20na%20oportunidade%20Recepcionista%20de%20Evento%20pelo%20TrajetEla.'
+  const [destaque, setDestaque] = useState(null)
+  const [outras, setOutras] = useState([])
+  const [totalAtivos, setTotalAtivos] = useState(0)
+  const [concluidos, setConcluidos] = useState([])
+  const [avaliacoes, setAvaliacoes] = useState([])
+  const montadoRef = useRef(true)
+  const usuariaIdRef = useRef(null)
+
+  const { coords } = useLocalizacao()
+
+  const carregarFreelas = async () => {
+    const [dest, { data: ativos }, { count }] = await Promise.all([
+      getFreelaDestaque(),
+      getFreelasAtivos(),
+      contarFreelasAtivos(),
+    ])
+    if (!montadoRef.current) return
+
+    const listaAtivos = ativos || []
+    let destaqueFinal = dest.data
+    if (!destaqueFinal && listaAtivos.length > 0) {
+      destaqueFinal = listaAtivos[0] // fallback: primeiro ativo
+    }
+    setDestaque(destaqueFinal || null)
+    setOutras(listaAtivos.filter((f) => !destaqueFinal || f.id !== destaqueFinal.id).slice(0, 3))
+    setTotalAtivos(count || 0)
+  }
+
+  const carregarRegistros = async () => {
+    const [{ data: conc }, { data: avals }] = await Promise.all([getFreelasConcluidos(), getAvaliacoes()])
+    if (!montadoRef.current) return
+    setConcluidos(conc || [])
+    setAvaliacoes(avals || [])
+  }
+
+  useEffect(() => {
+    montadoRef.current = true
+    carregarFreelas()
+    carregarRegistros()
+
+    const cancelarFreelas = assinarFreelas(() => carregarFreelas())
+
+    let cancelarRegistros = () => {}
+    getUsuariaId().then((uid) => {
+      if (!montadoRef.current) return
+      usuariaIdRef.current = uid
+      cancelarRegistros = assinarRegistrosUsuaria(uid, () => carregarRegistros())
+    })
+
+    return () => {
+      montadoRef.current = false
+      cancelarFreelas()
+      cancelarRegistros()
+    }
+  }, [])
+
+  const destaqueView = useMemo(() => {
+    if (!destaque) return null
+    const distanciaKm = distanciaValida(coords, destaque.latitude, destaque.longitude)
+    return {
+      ...destaque,
+      valorTexto: formatarValor(destaque),
+      dataTexto: formatarData(destaque.data_servico),
+      distanciaTexto: formatarDistancia(distanciaKm),
+      localCard: [destaque.bairro, destaque.cidade].filter(Boolean).join(' · '),
+    }
+  }, [destaque, coords])
+
+  const outrasView = useMemo(
+    () =>
+      outras.map((f) => {
+        const distanciaKm = distanciaValida(coords, f.latitude, f.longitude)
+        return {
+          ...f,
+          valorTexto: formatarValor(f),
+          dataTexto: formatarData(f.data_servico),
+          distanciaTexto: formatarDistancia(distanciaKm),
+          localCard: [f.bairro, f.cidade].filter(Boolean).join(' · '),
+        }
+      }),
+    [outras, coords],
+  )
+
+  const totalMes = totalDoMes(concluidos)
+  const media = mediaReputacao(avaliacoes)
+  const subtitulo = totalAtivos === 1 ? '1 oportunidade ativa' : `${totalAtivos} oportunidades ativas`
 
   return (
     <PageContainer className="bg-[#EFE7FB]">
-      <UserHeader title="Renda Rápida" subtitle="10 novas vagas adicionadas" />
+      <UserHeader title="Renda Rápida" subtitle={subtitulo} />
 
       <div className="-mt-5 mb-6 rounded-t-[28px] rounded-b-[32px] border-t border-[#8F55E9]/30 bg-white px-5 pb-8 pt-6">
         {/* Próxima a você */}
         <h3 className="font-bold text-[#291662]">Próxima a você</h3>
-        <div className="mt-3 rounded-2xl border border-[#F3B6C9] bg-gradient-to-br from-[#FCEEF1] to-[#F9E1E8] p-4 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <h4 className="text-[16px] font-bold text-[#291662]">Recepcionista de Evento</h4>
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#291662]/80">
-                <span className="flex items-center gap-1"><UserPinIcon className="h-4 w-4" /> 2,4 km</span>
-                <span className="flex items-center gap-1"><CalendarIcon className="h-4 w-4" /> Hoje</span>
-                <span className="flex items-center gap-1"><ClockIcon className="h-4 w-4" /> 20:00h</span>
+        {destaqueView ? (
+          <div className="mt-3 rounded-2xl border border-[#F3B6C9] bg-gradient-to-br from-[#FCEEF1] to-[#F9E1E8] p-4 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <h4 className="text-[16px] font-bold text-[#291662]">{destaqueView.titulo}</h4>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#291662]/80">
+                  <span className="flex items-center gap-1">
+                    <UserPinIcon className="h-4 w-4" /> {destaqueView.distanciaTexto || destaqueView.localCard || '—'}
+                  </span>
+                  {destaqueView.dataTexto && <span className="flex items-center gap-1"><CalendarIcon className="h-4 w-4" /> {destaqueView.dataTexto}</span>}
+                  {destaqueView.horario && <span className="flex items-center gap-1"><ClockIcon className="h-4 w-4" /> {destaqueView.horario}</span>}
+                </div>
+                <p className="mt-1 text-[13px] text-[#291662]/80">{destaqueView.contratante}</p>
               </div>
-              <p className="mt-1 text-[13px] text-[#291662]/80">Eventos SP</p>
+              <p className="text-xl font-bold text-[#D6479B]">{destaqueView.valorTexto}</p>
             </div>
-            <p className="text-xl font-bold text-[#D6479B]">R$ 180</p>
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(`/freelas/${destaqueView.id}`)}
+                className="flex-1 rounded-full border border-[#D6479B] bg-white py-2.5 text-[13px] font-semibold text-[#291662] transition-transform active:scale-95"
+              >
+                Ver detalhes
+              </button>
+              <ContatoFreela freela={destaqueView} />
+            </div>
           </div>
-          <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={() => setVagaSel(destaque)}
-              className="flex-1 rounded-full border border-[#D6479B] bg-white py-2.5 text-[13px] font-semibold text-[#291662] transition-transform active:scale-95"
-            >
-              Ver detalhes
-            </button>
-            <a
-              href={whatsappDestaque}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 rounded-full bg-gradient-to-r from-[#E060A6] to-[#B14AD6] py-2.5 text-center text-[13px] font-semibold text-white transition-transform active:scale-95"
-            >
-              Tenho interesse
-            </a>
+        ) : (
+          <div className="mt-3 rounded-2xl border border-dashed border-[#8F55E9]/40 bg-[#F6F1FE] px-4 py-6 text-center text-[14px] text-[#291662]/70">
+            Nenhuma oportunidade em destaque no momento.
           </div>
-        </div>
+        )}
 
         {/* Outras oportunidades */}
         <div className="mb-3 mt-6 flex items-center justify-between">
@@ -138,35 +195,41 @@ export default function RendaRapida() {
             Ver todas
           </button>
         </div>
-        <div className="rounded-2xl border border-[#8F55E9]/25 bg-white p-2 shadow-sm">
-          {outras.map((o, i) => (
-            <div
-              key={o.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setVagaSel(o)}
-              onKeyDown={(e) => e.key === 'Enter' && setVagaSel(o)}
-              className={`flex cursor-pointer items-center gap-3 px-2 py-3 transition-colors active:bg-[#F6F1FE] ${
-                i < outras.length - 1 ? 'border-b border-[#291662]/10' : ''
-              }`}
-            >
-              <div className={`flex h-12 w-12 flex-none items-center justify-center rounded-xl text-2xl ${o.bg}`}>
-                {o.emoji}
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-[#291662]">{o.titulo}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-[#291662]/75">
-                  <span className="flex items-center gap-0.5"><UserPinIcon className="h-3.5 w-3.5" /> {o.km}</span>
-                  <span className="flex items-center gap-0.5"><CalendarIcon className="h-3.5 w-3.5" /> {o.dia}</span>
-                  {o.hora && <span className="flex items-center gap-0.5"><ClockIcon className="h-3.5 w-3.5" /> {o.hora}</span>}
+        {outrasView.length > 0 ? (
+          <div className="rounded-2xl border border-[#8F55E9]/25 bg-white p-2 shadow-sm">
+            {outrasView.map((o, i) => (
+              <div
+                key={o.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/freelas/${o.id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/freelas/${o.id}`)}
+                className={`flex cursor-pointer items-center gap-3 px-2 py-3 transition-colors active:bg-[#F6F1FE] ${
+                  i < outrasView.length - 1 ? 'border-b border-[#291662]/10' : ''
+                }`}
+              >
+                <div className="flex h-12 w-12 flex-none items-center justify-center rounded-xl bg-[#F1EAFD] text-[#8F55E9]">
+                  <UserPinIcon className="h-5 w-5" />
                 </div>
+                <div className="flex-1">
+                  <p className="font-bold text-[#291662]">{o.titulo}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-[#291662]/75">
+                    <span className="flex items-center gap-0.5"><UserPinIcon className="h-3.5 w-3.5" /> {o.distanciaTexto || o.localCard || '—'}</span>
+                    {o.dataTexto && <span className="flex items-center gap-0.5"><CalendarIcon className="h-3.5 w-3.5" /> {o.dataTexto}</span>}
+                    {o.horario && <span className="flex items-center gap-0.5"><ClockIcon className="h-3.5 w-3.5" /> {o.horario}</span>}
+                  </div>
+                </div>
+                <span className="flex items-center gap-0.5 font-bold text-[#D6479B]">
+                  {o.valorTexto} <ChevronRight className="h-4 w-4" />
+                </span>
               </div>
-              <span className="flex items-center gap-0.5 font-bold text-[#D6479B]">
-                {o.valor} <ChevronRight className="h-4 w-4" />
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[#8F55E9]/40 bg-[#F6F1FE] px-4 py-6 text-center text-[14px] text-[#291662]/70">
+            Nenhuma outra oportunidade disponível ainda.
+          </div>
+        )}
 
         {/* Saldo e reputação */}
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -180,7 +243,7 @@ export default function RendaRapida() {
               <span className="font-bold">Seu saldo</span>
             </div>
             <p className="mt-2 text-[13px] text-[#291662]/70">Este mês</p>
-            <p className="text-lg font-bold text-[#291662]">R$ 780</p>
+            <p className="text-lg font-bold text-[#291662]">{formatarReais(totalMes)}</p>
           </button>
           <button
             type="button"
@@ -191,37 +254,35 @@ export default function RendaRapida() {
               <StarIcon className="h-6 w-6 text-[#F4B400]" />
               <span className="font-bold">Sua reputação</span>
             </div>
-            <p className="mt-2 text-[13px] text-[#291662]/70">Este mês</p>
-            <p className="text-lg font-bold text-[#291662]">7.6</p>
+            <p className="mt-2 text-[13px] text-[#291662]/70">Média geral</p>
+            <p className="text-lg font-bold text-[#291662]">{media == null ? 'Sem avaliações' : media}</p>
           </button>
         </div>
       </div>
 
-      {/* Modal de detalhes da vaga */}
-      <VagaModal
-        open={!!vagaSel}
-        onClose={() => setVagaSel(null)}
-        vaga={vagaSel}
-        salvarLabel="Salvar oportunidade"
-        salvo={!!vagaSel && salvos.includes(`freela-${vagaSel.id}`)}
-        onSalvar={() => vagaSel && salvarFreela(vagaSel)}
-      />
-
       {/* Modal Seu saldo */}
       <Modal open={saldoAberto} onClose={() => setSaldoAberto(false)} title="Seu saldo">
-        <p className="-mt-2 text-[14px] font-semibold text-[#291662]">Rendimentos deste mês</p>
-        <div className="mt-3 divide-y divide-[#291662]/10">
-          {rendimentos.map((r) => (
-            <div key={r.titulo} className="flex items-center justify-between py-3 text-[14px]">
-              <span className="text-[#291662]">{r.titulo}</span>
-              <span className="font-bold text-[#2EA043]">{r.valor}</span>
+        <p className="-mt-2 text-[14px] font-semibold text-[#291662]">Freelas concluídos este mês</p>
+        {concluidos.length === 0 ? (
+          <p className="mt-3 rounded-2xl border border-dashed border-[#8F55E9]/40 bg-[#F6F1FE] px-4 py-6 text-center text-[14px] text-[#291662]/70">
+            Você ainda não possui freelas concluídos.
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 divide-y divide-[#291662]/10">
+              {concluidos.map((r) => (
+                <div key={r.id} className="flex items-center justify-between py-3 text-[14px]">
+                  <span className="text-[#291662]">{r.freela?.titulo || 'Freela'}</span>
+                  <span className="font-bold text-[#2EA043]">{formatarReais(r.valor_confirmado)}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#F6F1FE] px-4 py-3">
-          <span className="text-[14px] font-semibold text-[#291662]">Total</span>
-          <span className="text-lg font-bold text-[#291662]">R$ 780</span>
-        </div>
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#F6F1FE] px-4 py-3">
+              <span className="text-[14px] font-semibold text-[#291662]">Total do mês</span>
+              <span className="text-lg font-bold text-[#291662]">{formatarReais(totalMes)}</span>
+            </div>
+          </>
+        )}
         <button
           type="button"
           onClick={() => setSaldoAberto(false)}
@@ -231,34 +292,44 @@ export default function RendaRapida() {
         </button>
       </Modal>
 
-      {/* Modal Sua reputação (lista de avaliações clicáveis) */}
+      {/* Modal Sua reputação */}
       <Modal open={reputacaoAberta} onClose={() => setReputacaoAberta(false)} title="Sua reputação">
         <p className="-mt-2 text-[14px] font-semibold text-[#291662]">Avaliações de contratantes</p>
-        <div className="mt-3 space-y-3">
-          {avaliacoes.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => setAvaliacaoSel(a)}
-              className="w-full rounded-2xl border border-[#8F55E9]/20 bg-[#F6F1FE] p-3 text-left transition-transform hover:border-[#8F55E9]/40 active:scale-[0.98]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-bold text-[#291662]">{a.contratante}</span>
-                <span className="flex items-center gap-1 text-[14px] font-bold text-[#291662]">
-                  <StarIcon className="h-4 w-4 text-[#F4B400]" /> {a.nota}
-                </span>
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <p className="text-[13px] text-[#291662]/80">“{a.comentarioCurto}”</p>
-                <ChevronRight className="h-4 w-4 flex-none text-[#291662]/40" />
-              </div>
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#F6F1FE] px-4 py-3">
-          <span className="text-[14px] font-semibold text-[#291662]">Média</span>
-          <span className="text-lg font-bold text-[#291662]">7.6</span>
-        </div>
+        {avaliacoes.length === 0 ? (
+          <p className="mt-3 rounded-2xl border border-dashed border-[#8F55E9]/40 bg-[#F6F1FE] px-4 py-6 text-center text-[14px] text-[#291662]/70">
+            Você ainda não recebeu avaliações.
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 space-y-3">
+              {avaliacoes.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setAvaliacaoSel(a)}
+                  className="w-full rounded-2xl border border-[#8F55E9]/20 bg-[#F6F1FE] p-3 text-left transition-transform hover:border-[#8F55E9]/40 active:scale-[0.98]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[14px] font-bold text-[#291662]">{a.contratante_nome || 'Contratante'}</span>
+                    <span className="flex items-center gap-1 text-[14px] font-bold text-[#291662]">
+                      <StarIcon className="h-4 w-4 text-[#F4B400]" /> {a.nota}
+                    </span>
+                  </div>
+                  {a.comentario && (
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-[13px] text-[#291662]/80">“{a.comentario}”</p>
+                      <ChevronRight className="h-4 w-4 flex-none text-[#291662]/40" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#F6F1FE] px-4 py-3">
+              <span className="text-[14px] font-semibold text-[#291662]">Média</span>
+              <span className="text-lg font-bold text-[#291662]">{media}</span>
+            </div>
+          </>
+        )}
         <button
           type="button"
           onClick={() => setReputacaoAberta(false)}
@@ -269,22 +340,24 @@ export default function RendaRapida() {
       </Modal>
 
       {/* Modal de detalhes de uma avaliação */}
-      <Modal open={!!avaliacaoSel} onClose={() => setAvaliacaoSel(null)} title={avaliacaoSel?.contratante}>
+      <Modal open={!!avaliacaoSel} onClose={() => setAvaliacaoSel(null)} title={avaliacaoSel?.contratante_nome || 'Avaliação'}>
         {avaliacaoSel && (
           <>
             <div className="space-y-2 text-[14px] text-[#291662]">
-              <p><span className="font-semibold">Contratante:</span> {avaliacaoSel.contratante}</p>
-              <p><span className="font-semibold">Serviço:</span> {avaliacaoSel.servico}</p>
-              <p><span className="font-semibold">Data:</span> {avaliacaoSel.data}</p>
+              <p><span className="font-semibold">Contratante:</span> {avaliacaoSel.contratante_nome || '—'}</p>
+              {avaliacaoSel.freela?.titulo && <p><span className="font-semibold">Serviço:</span> {avaliacaoSel.freela.titulo}</p>}
+              <p><span className="font-semibold">Data:</span> {formatarData(avaliacaoSel.created_at)}</p>
               <p className="flex items-center gap-1">
                 <span className="font-semibold">Nota:</span>
                 <StarIcon className="h-4 w-4 text-[#F4B400]" /> {avaliacaoSel.nota}
               </p>
             </div>
-            <div className="mt-4 rounded-2xl bg-[#F6F1FE] p-4">
-              <p className="text-[13px] font-semibold text-[#291662]">Comentário completo</p>
-              <p className="mt-1 text-[14px] leading-relaxed text-[#291662]/80">“{avaliacaoSel.comentarioCompleto}”</p>
-            </div>
+            {avaliacaoSel.comentario && (
+              <div className="mt-4 rounded-2xl bg-[#F6F1FE] p-4">
+                <p className="text-[13px] font-semibold text-[#291662]">Comentário</p>
+                <p className="mt-1 text-[14px] leading-relaxed text-[#291662]/80">“{avaliacaoSel.comentario}”</p>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setAvaliacaoSel(null)}

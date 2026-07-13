@@ -314,7 +314,7 @@ export default function AdminVagas() {
     <PageContainer className="bg-[#EFE7FB]">
       <HeaderBack
         title="Gerenciar vagas"
-        to="/home"
+        to="/admin"
       />
 
       <div className="px-4 pb-28">
